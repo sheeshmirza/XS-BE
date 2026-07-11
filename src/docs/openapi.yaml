@@ -1,0 +1,363 @@
+openapi: 3.0.3
+info:
+  title: XSocial API
+  version: 1.0.0
+  description: Production-ready social media management backend API
+servers:
+  - url: http://localhost:5000
+tags:
+  - name: Auth
+  - name: Users
+  - name: Social
+  - name: Posts
+  - name: Dashboard
+  - name: Notifications
+  - name: Uploads
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: Validation failed
+        details:
+          nullable: true
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+        data:
+          nullable: true
+paths:
+  /api/v1/auth/signup:
+    post:
+      tags: [Auth]
+      summary: Register user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+      responses:
+        '201':
+          description: Signup successful
+        '409':
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/verify-email:
+    post:
+      tags: [Auth]
+      summary: Verify email after signup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+      responses:
+        '200': { description: Email verified }
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200': { description: Logged in }
+        '401': { description: Invalid credentials }
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout user
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200': { description: Logged out }
+  /api/v1/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200': { description: Token refreshed }
+  /api/v1/auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Request password reset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        '200': { description: Request processed }
+  /api/v1/auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Reset password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, newPassword]
+              properties:
+                token: { type: string }
+                newPassword: { type: string, minLength: 8 }
+      responses:
+        '200': { description: Password reset }
+  /api/v1/users/me:
+    get:
+      tags: [Users]
+      summary: Get current profile
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Profile fetched }
+    put:
+      tags: [Users]
+      summary: Update current profile
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fullName: { type: string }
+                avatarUrl: { type: string }
+                timezone: { type: string }
+      responses:
+        '200': { description: Profile updated }
+    delete:
+      tags: [Users]
+      summary: Delete current account
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Account deleted }
+  /api/v1/social/accounts:
+    get:
+      tags: [Social]
+      summary: List connected social accounts
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Social accounts fetched }
+  /api/v1/social/connect/{platform}:
+    post:
+      tags: [Social]
+      summary: Generate OAuth connect URL
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: platform
+          required: true
+          schema:
+            type: string
+            enum: [linkedin, instagram, facebook, x]
+      responses:
+        '200': { description: OAuth URL generated }
+  /api/v1/social/callback/{platform}:
+    get:
+      tags: [Social]
+      summary: OAuth callback for social platform
+      parameters:
+        - in: path
+          name: platform
+          required: true
+          schema:
+            type: string
+            enum: [linkedin, instagram, facebook, x]
+        - in: query
+          name: code
+          required: true
+          schema: { type: string }
+        - in: query
+          name: state
+          required: false
+          schema: { type: string }
+      responses:
+        '200': { description: Social account connected }
+  /api/v1/social/{id}:
+    delete:
+      tags: [Social]
+      summary: Disconnect social account
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Social disconnected }
+  /api/v1/social/refresh-token:
+    post:
+      tags: [Social]
+      summary: Refresh platform token
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [socialId]
+              properties:
+                socialId: { type: string }
+      responses:
+        '200': { description: Social token refreshed }
+  /api/v1/posts:
+    post:
+      tags: [Posts]
+      summary: Create a post
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201': { description: Post created }
+    get:
+      tags: [Posts]
+      summary: List posts with filters/pagination
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Posts fetched }
+  /api/v1/posts/{id}:
+    get:
+      tags: [Posts]
+      summary: Get post by id
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Post fetched }
+    put:
+      tags: [Posts]
+      summary: Update post by id
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Post updated }
+    delete:
+      tags: [Posts]
+      summary: Delete post by id
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Post deleted }
+  /api/v1/posts/{id}/publish:
+    post:
+      tags: [Posts]
+      summary: Publish post to selected/all connected platforms
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Publish attempted }
+  /api/v1/posts/{id}/schedule:
+    post:
+      tags: [Posts]
+      summary: Schedule post publishing
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Post scheduled }
+  /api/v1/dashboard/stats:
+    get:
+      tags: [Dashboard]
+      summary: Get dashboard statistics
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Dashboard stats fetched }
+  /api/v1/notifications:
+    get:
+      tags: [Notifications]
+      summary: List user notifications
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Notifications fetched }
+  /api/v1/uploads/media:
+    post:
+      tags: [Uploads]
+      summary: Upload media files (image/video/gif)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+      responses:
+        '201': { description: Uploaded }

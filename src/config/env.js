@@ -1,0 +1,54 @@
+const dotenv = require('dotenv');
+
+dotenv.config();
+
+module.exports = {
+  nodeEnv: process.env.NODE_ENV || 'development',
+  port: Number(process.env.PORT || 5000),
+  apiPrefix: process.env.API_PREFIX || '/api/v1',
+  mongodbUri: process.env.MONGODB_URI,
+  jwtAccessSecret: process.env.JWT_ACCESS_SECRET,
+  jwtRefreshSecret: process.env.JWT_REFRESH_SECRET,
+  jwtAccessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
+  jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '30d',
+  bcryptSaltRounds: Number(process.env.BCRYPT_SALT_ROUNDS || 12),
+  clientUrl: process.env.CLIENT_URL,
+  rateLimitWindowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
+  rateLimitMax: Number(process.env.RATE_LIMIT_MAX || 200),
+  redisUrl: process.env.REDIS_URL,
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    apiKey: process.env.CLOUDINARY_API_KEY,
+    apiSecret: process.env.CLOUDINARY_API_SECRET
+  },
+  smtp: {
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT || 587),
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+    from: process.env.SMTP_FROM
+  },
+  oauth: {
+    linkedin: {
+      clientId: process.env.LINKEDIN_CLIENT_ID,
+      clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
+      redirectUri: process.env.LINKEDIN_REDIRECT_URI
+    },
+    facebook: {
+      clientId: process.env.FACEBOOK_CLIENT_ID,
+      clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
+      redirectUri: process.env.FACEBOOK_REDIRECT_URI
+    },
+    instagram: {
+      clientId: process.env.INSTAGRAM_CLIENT_ID,
+      clientSecret: process.env.INSTAGRAM_CLIENT_SECRET,
+      redirectUri: process.env.INSTAGRAM_REDIRECT_URI
+    },
+    x: {
+      clientId: process.env.X_CLIENT_ID,
+      clientSecret: process.env.X_CLIENT_SECRET,
+      redirectUri: process.env.X_REDIRECT_URI
+    }
+  },
+  swaggerServerUrl: process.env.SWAGGER_SERVER_URL || 'http://localhost:5000'
+};
