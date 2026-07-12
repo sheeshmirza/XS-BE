@@ -23,7 +23,7 @@ const initializePostQueue = async (): Promise<void> => {
     maxRetriesPerRequest: null,
   });
   postQueue = new Queue("scheduled-posts-queue", {
-    connection,
+    connection: connection as any,
   });
   worker = new Worker(
     "scheduled-posts-queue",
@@ -31,7 +31,7 @@ const initializePostQueue = async (): Promise<void> => {
       await processPublishPostJob(job.data);
     },
     {
-      connection,
+      connection: connection as any,
     },
   );
   worker.on("failed", (job, error) => {

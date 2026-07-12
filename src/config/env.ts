@@ -35,5 +35,4 @@ export default {
   },
   port: Number(process.env.PORT),
   redisUrl: process.env.REDIS_URL,
-  swaggerServerUrl: process.env.SWAGGER_SERVER_URL,
 };
