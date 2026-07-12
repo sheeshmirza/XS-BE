@@ -1,0 +1,11 @@
+import express from 'express';
+import userController from '../../controllers/userController';
+import auth from '../../middleware/auth';
+import validate from '../../middleware/validate';
+import userValidation from '../../validations/userValidation';
+const router = express.Router();
+router.get('/me', auth, userController.getMe);
+router.put('/me', auth, validate(userValidation.updateMe), userController.updateMe);
+router.put('/me/change-password', auth, validate(userValidation.changePassword), userController.changePassword);
+router.delete('/me', auth, userController.deleteMe);
+export default router;

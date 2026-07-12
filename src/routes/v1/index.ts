@@ -1,0 +1,17 @@
+import express from 'express';
+import authRoutes from './authRoutes';
+import userRoutes from './userRoutes';
+import socialRoutes from './socialRoutes';
+import postRoutes from './postRoutes';
+import dashboardRoutes from './dashboardRoutes';
+import notificationRoutes from './notificationRoutes';
+import uploadRoutes from './uploadRoutes';
+const router = express.Router();
+router.use('/auth', authRoutes);
+router.use('/users', userRoutes);
+router.use('/social', socialRoutes);
+router.use('/posts', postRoutes);
+router.use('/dashboard', dashboardRoutes);
+router.use('/notifications', notificationRoutes);
+router.use('/uploads', uploadRoutes);
+export default router;

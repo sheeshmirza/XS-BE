@@ -1,0 +1,12 @@
+import express from 'express';
+import socialController from '../../controllers/socialController';
+import auth from '../../middleware/auth';
+import validate from '../../middleware/validate';
+import socialValidation from '../../validations/socialValidation';
+const router = express.Router();
+router.get('/accounts', auth, socialController.listAccounts);
+router.post('/connect/:platform', auth, validate(socialValidation.connect), socialController.connectPlatform);
+router.get('/callback/:platform', validate(socialValidation.callback), socialController.oauthCallback);
+router.delete('/:id', auth, validate(socialValidation.remove), socialController.disconnect);
+router.post('/refresh-token', auth, validate(socialValidation.refreshToken), socialController.refreshSocialToken);
+export default router;

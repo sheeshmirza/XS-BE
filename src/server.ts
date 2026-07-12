@@ -1,0 +1,10 @@
+import app from './app';
+import { connectDatabase } from './config/database';
+import env from './config/env';
+import { initializePostQueue } from './queue/postQueue';
+import logger from './utils/logger';
+const startServer = async () => { await connectDatabase();
+  await initializePostQueue();
+  app.listen(env.port, () => { logger.info(`XS-BE running on port ${env.port}`); }); };
+startServer().catch((error) => { logger.error({ message: "Failed to start server", error });
+  process.exit(1); });
