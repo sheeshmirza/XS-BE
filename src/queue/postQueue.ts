@@ -7,7 +7,7 @@ let postQueue;
 let worker;
 const initializePostQueue = async () => { if (!env.redisUrl) { logger.warn('REDIS_URL missing. Post queue is disabled.');
     return; }
-  const connection = new Redis(env.redisUrl, { maxRetriesPerRequest: null });
+  const connection: any = new Redis(env.redisUrl, { maxRetriesPerRequest: null });
   // Dedicated queue keeps post scheduling isolated from web request lifecycle.
   postQueue = new Queue('post-publish-queue', { connection });
   worker = new Worker(

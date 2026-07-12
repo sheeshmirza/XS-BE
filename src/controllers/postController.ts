@@ -27,3 +27,4 @@ const schedulePost = asyncHandler(async (req, res) => { const post = await postS
   );
   return sendSuccess(res, httpStatus.OK, 'Post scheduled', post); });
 export { createPost, listPosts, getPost, updatePost, deletePost, publishPost, schedulePost };
+export default { createPost, listPosts, getPost, updatePost, deletePost, publishPost, schedulePost };

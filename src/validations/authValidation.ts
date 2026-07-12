@@ -26,3 +26,4 @@ const verifyEmail = Joi.object({ body: Joi.object({ token: Joi.string().required
   params: Joi.object({}).required(),
   query: Joi.object({}).required() });
 export { signup, login, refresh, logout, forgotPassword, resetPassword, verifyEmail };
+export default { signup, login, refresh, logout, forgotPassword, resetPassword, verifyEmail };

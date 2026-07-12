@@ -19,4 +19,4 @@ const notificationSchema = new mongoose.Schema(
     versionKey: false }
 );
 notificationSchema.index({ userId: 1, isRead: 1, createdAt: -1 });
-module.exports = mongoose.model('Notification', notificationSchema);
+export default mongoose.model('Notification', notificationSchema);

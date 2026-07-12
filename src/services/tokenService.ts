@@ -13,7 +13,7 @@ const parseDurationToMs = (duration) => { const value = String(duration || '30d'
 class TokenService { // Access tokens are stateless JWTs and short-lived.
   generateAccessToken(userId) { return jwt.sign({ sub: userId }, env.jwtAccessSecret, { expiresIn: env.jwtAccessExpiresIn }); }
   // Refresh tokens are random opaque values persisted as SHA-256 hashes for safer storage.
-  async generateRefreshToken(userId, metadata = {}) { const rawToken = randomToken(48);
+  async generateRefreshToken(userId, metadata: any = {}) { const rawToken = randomToken(48);
     const tokenHash = sha256(rawToken);
     const expiresAt = new Date(Date.now() + parseDurationToMs(env.jwtRefreshExpiresIn));
     await refreshTokenRepository.create({ userId,
@@ -22,7 +22,7 @@ class TokenService { // Access tokens are stateless JWTs and short-lived.
       userAgent: metadata.userAgent || '',
       ipAddress: metadata.ipAddress || '' });
     return rawToken; }
-  async rotateRefreshToken(rawToken, metadata = {}) { const tokenHash = sha256(rawToken);
+  async rotateRefreshToken(rawToken, metadata: any = {}) { const tokenHash = sha256(rawToken);
     const tokenDoc = await refreshTokenRepository.findByTokenHash(tokenHash);
     if (!tokenDoc || tokenDoc.revokedAt || tokenDoc.expiresAt < new Date()) { return null; }
     // Rotation invalidates the previous refresh token to reduce replay risk.

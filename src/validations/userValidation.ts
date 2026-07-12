@@ -9,3 +9,4 @@ const changePassword = Joi.object({ body: Joi.object({ oldPassword: Joi.string()
   params: Joi.object({}).required(),
   query: Joi.object({}).required() });
 export { updateMe, changePassword };
+export default { updateMe, changePassword };

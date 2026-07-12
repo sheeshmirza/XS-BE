@@ -1,11 +1,11 @@
 import SocialHandle from '../models/SocialHandle';
 class SocialHandleRepository { create(payload) { return SocialHandle.create(payload); }
-  listByUserId(userId, filters = {}, options = {}) { const query = { userId, ...filters };
+  listByUserId(userId, filters: any = {}, options: any = {}) { const query = { userId, ...filters };
     const sort = options.sort || { createdAt: -1 };
     const skip = options.skip || 0;
     const limit = options.limit || 20;
     return SocialHandle.find(query).sort(sort).skip(skip).limit(limit); }
-  countByUserId(userId, filters = {}) { return SocialHandle.countDocuments({ userId, ...filters }); }
+  countByUserId(userId, filters: any = {}) { return SocialHandle.countDocuments({ userId, ...filters }); }
   findByIdAndUserId(id, userId) { return SocialHandle.findOne({ _id: id, userId }); }
   upsertByPlatformIdentity(userId, platform, platformUserId, payload) { return SocialHandle.findOneAndUpdate(
       { userId, platform, platformUserId },

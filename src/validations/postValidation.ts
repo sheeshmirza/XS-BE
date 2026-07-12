@@ -49,3 +49,4 @@ const schedulePost = Joi.object({ body: Joi.object({ scheduledTime: Joi.date().i
   params: Joi.object({ id: Joi.string().required() }).required(),
   query: Joi.object({}).required() });
 export { createPost, listPosts, postIdParam, updatePost, publishPost, schedulePost };
+export default { createPost, listPosts, postIdParam, updatePost, publishPost, schedulePost };

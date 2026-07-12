@@ -6,7 +6,7 @@ import httpStatus from '../constants/httpStatus';
 import { getOAuthAdapter } from '../adapters/oauth';
 import platforms from '../constants/platforms';
 const allowedPlatforms = Object.values(platforms);
-class SocialService { async listAccounts(userId, filters, options) { const dbFilters = {};
+class SocialService { async listAccounts(userId, filters, options) { const dbFilters: any = {};
     if (filters.platform) dbFilters.platform = filters.platform;
     if (typeof filters.isConnected === 'boolean') dbFilters.isConnected = filters.isConnected;
     const [items, total] = await Promise.all([
@@ -28,7 +28,7 @@ class SocialService { async listAccounts(userId, filters, options) { const dbFil
     const expiresIn = tokenResult.expires_in || 3600;
     const scopes = (tokenResult.scope || '').split(/[ ,]/).filter(Boolean);
     if (!accessToken) { throw new ApiError(httpStatus.BAD_REQUEST, 'No access token returned by OAuth provider'); }
-    const profile = await adapter.fetchUserProfile(accessToken);
+    const profile: any = await adapter.fetchUserProfile(accessToken);
     // Upsert allows multiple accounts per platform while avoiding exact duplicate platform identities.
     const socialHandle = await socialHandleRepository.upsertByPlatformIdentity(
       userId,
@@ -56,7 +56,7 @@ class SocialService { async listAccounts(userId, filters, options) { const dbFil
   async disconnectAccount(userId, socialId) { const deleted = await socialHandleRepository.deleteByIdAndUserId(socialId, userId);
     if (!deleted) { throw new ApiError(httpStatus.NOT_FOUND, 'Social account not found'); }
     return deleted; }
-  async refreshPlatformToken(userId, socialId) { const social = await socialHandleRepository.findByIdAndUserId(socialId, userId);
+  async refreshPlatformToken(userId, socialId) { const social: any = await socialHandleRepository.findByIdAndUserId(socialId, userId);
     if (!social) { throw new ApiError(httpStatus.NOT_FOUND, 'Social account not found'); }
     const adapter = getOAuthAdapter(social.platform);
     if (!adapter) { throw new ApiError(httpStatus.BAD_REQUEST, 'OAuth adapter not found for platform'); }

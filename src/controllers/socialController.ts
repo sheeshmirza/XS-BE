@@ -24,3 +24,4 @@ const disconnect = asyncHandler(async (req, res) => { await socialService.discon
 const refreshSocialToken = asyncHandler(async (req, res) => { const socialHandle = await socialService.refreshPlatformToken(req.user._id, req.body.socialId);
   return sendSuccess(res, httpStatus.OK, 'Social token refreshed', socialHandle); });
 export { listAccounts, connectPlatform, oauthCallback, disconnect, refreshSocialToken };
+export default { listAccounts, connectPlatform, oauthCallback, disconnect, refreshSocialToken };

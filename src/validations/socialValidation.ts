@@ -19,3 +19,4 @@ const refreshToken = Joi.object({ body: Joi.object({ socialId: Joi.string().requ
   params: Joi.object({}).required(),
   query: Joi.object({}).required() });
 export { connect, callback, remove, refreshToken };
+export default { connect, callback, remove, refreshToken };

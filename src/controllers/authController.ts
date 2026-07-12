@@ -34,3 +34,4 @@ const forgotPassword = asyncHandler(async (req, res) => { await authService.forg
 const resetPassword = asyncHandler(async (req, res) => { await authService.resetPassword(req.body.token, req.body.newPassword);
   return sendSuccess(res, httpStatus.OK, 'Password reset successful'); });
 export { signup, verifyEmail, login, refresh, logout, forgotPassword, resetPassword };
+export default { signup, verifyEmail, login, refresh, logout, forgotPassword, resetPassword };

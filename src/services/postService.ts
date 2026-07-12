@@ -20,10 +20,10 @@ class PostService { createPost(userId, payload) { return postRepository.create({
       scheduledTime: payload.scheduledTime || null,
       status: payload.status || postStatus.DRAFT,
       selectedPlatforms: payload.selectedPlatforms || [] }); }
-  async listPosts(userId, query, options) { const filters = {};
-    if (query.status) filters.status = query.status;
-    if (query.postType) filters.postType = query.postType;
-    if (query.search) { filters.$or = [
+  async listPosts(userId, query, options) { const filters: any = {};
+    if (query.status) (filters as any).status = query.status;
+    if (query.postType) (filters as any).postType = query.postType;
+    if (query.search) { (filters as any).$or = [
         { title: { $regex: query.search, $options: 'i' } },
         { caption: { $regex: query.search, $options: 'i' } }
       ]; }
@@ -56,11 +56,11 @@ class PostService { createPost(userId, payload) { return postRepository.create({
         continue; }
       const result = await adapter.publish(post, handle);
       responseItems.push({ platform: handle.platform,
-        platformPostId: result.platformPostId || '',
-        url: result.url || '',
-        status: result.status,
-        message: result.message || '',
-        raw: result.raw || {} }); }
+        platformPostId: (result as any).platformPostId || '',
+        url: (result as any).url || '',
+        status: (result as any).status,
+        message: (result as any).message || '',
+        raw: (result as any).raw || {} }); }
     // A partial success still marks the post as published with per-platform response tracking.
     const successCount = responseItems.filter((item) => item.status === 'success').length;
     const nextStatus = successCount > 0 ? postStatus.PUBLISHED : postStatus.FAILED;

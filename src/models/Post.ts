@@ -45,4 +45,4 @@ const postSchema = new mongoose.Schema(
 );
 postSchema.index({ userId: 1, createdAt: -1 });
 postSchema.index({ userId: 1, status: 1, scheduledTime: 1 });
-module.exports = mongoose.model('Post', postSchema);
+export default mongoose.model('Post', postSchema);

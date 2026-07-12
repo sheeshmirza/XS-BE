@@ -10,3 +10,4 @@ const listNotifications = Joi.object({ body: Joi.object({}).required(),
     sortBy: Joi.string().valid('createdAt', 'updatedAt').optional(),
     order: Joi.string().valid('asc', 'desc').optional() }).required() });
 export { listNotifications };
+export default { listNotifications };

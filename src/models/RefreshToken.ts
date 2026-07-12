@@ -10,4 +10,4 @@ const refreshTokenSchema = new mongoose.Schema(
     versionKey: false }
 );
 refreshTokenSchema.index({ userId: 1, revokedAt: 1 });
-module.exports = mongoose.model('RefreshToken', refreshTokenSchema);
+export default mongoose.model('RefreshToken', refreshTokenSchema);

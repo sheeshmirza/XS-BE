@@ -33,3 +33,4 @@ const changePassword = asyncHandler(async (req, res) => { const result = await u
 const deleteMe = asyncHandler(async (req, res) => { await userService.deleteUser(req.user._id);
   return sendSuccess(res, httpStatus.OK, 'Account deleted successfully'); });
 export { getMe, updateMe, changePassword, deleteMe };
+export default { getMe, updateMe, changePassword, deleteMe };
