@@ -1,4 +1,6 @@
-export default { DRAFT: 'draft',
-  SCHEDULED: 'scheduled',
-  PUBLISHED: 'published',
-  FAILED: 'failed' };
+export default {
+  DRAFT: "draft",
+  SCHEDULED: "scheduled",
+  PUBLISHED: "published",
+  FAILED: "failed",
+};
