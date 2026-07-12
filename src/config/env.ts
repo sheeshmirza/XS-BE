@@ -9,6 +9,7 @@ export default {
   jwtAccessSecret: process.env.JWT_ACCESS_SECRET,
   jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
   jwtRefreshSecret: process.env.JWT_REFRESH_SECRET,
+  mongodbDbName: process.env.MONGODB_DB_NAME,
   mongodbUri: process.env.MONGODB_URI,
   oauth: {
     facebook: {
