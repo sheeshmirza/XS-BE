@@ -4,7 +4,6 @@ import env from '../config/env';
 import ApiError from '../utils/ApiError';
 import httpStatus from '../constants/httpStatus';
 import tokenService from './tokenService';
-import emailService from './emailService';
 import { randomToken } from '../utils/crypto';
 class AuthService { async signup({ email, password }) { const exists = await userRepository.findByEmail(email);
     if (exists) { throw new ApiError(httpStatus.CONFLICT, 'Email is already registered'); }
@@ -13,10 +12,9 @@ class AuthService { async signup({ email, password }) { const exists = await use
     // Keep signup lean: create account, then trigger asynchronous user-facing actions.
     const user = await userRepository.create({ email,
       password: passwordHash,
-      isVerified: false,
-      emailVerificationToken: verificationToken,
-      emailVerificationExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) });
-    await emailService.sendVerificationEmail(user.email, verificationToken);
+      isVerified: true,
+      emailVerificationToken: null,
+      emailVerificationExpiresAt: null });
     return user; }
   async verifyEmail(token) { const user = await userRepository.findByVerificationToken(token);
     if (!user || !user.emailVerificationExpiresAt || user.emailVerificationExpiresAt < new Date()) { throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid or expired verification token'); }
@@ -47,8 +45,7 @@ class AuthService { async signup({ email, password }) { const exists = await use
     if (!user) return;
     const resetToken = randomToken(24);
     await userRepository.updateById(user._id, { resetPasswordToken: resetToken,
-      resetPasswordExpiresAt: new Date(Date.now() + 60 * 60 * 1000) });
-    await emailService.sendResetPasswordEmail(email, resetToken); }
+      resetPasswordExpiresAt: new Date(Date.now() + 60 * 60 * 1000) }); }
   async resetPassword(token, newPassword) { const user = await userRepository.findByResetToken(token);
     if (!user || !user.resetPasswordExpiresAt || user.resetPasswordExpiresAt < new Date()) { throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid or expired reset token'); }
     const hash = await bcrypt.hash(newPassword, env.bcryptSaltRounds);
