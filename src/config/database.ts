@@ -2,7 +2,6 @@
 
 import mongoose from "mongoose";
 
-import logger from "../utils/logger";
 import env from "./env";
 
 const connectDatabase = async () => {
@@ -16,7 +15,7 @@ const connectDatabase = async () => {
   await mongoose.connect(env.mongodbUri, {
     dbName: env.mongodbDbName,
   });
-  logger.info("MongoDB connected");
+  console.log("MongoDB connected");
 };
 
 export { connectDatabase };

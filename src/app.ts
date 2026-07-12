@@ -3,9 +3,9 @@
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
+import morgan from "morgan";
 import errorHandler from "./middleware/errorHandler";
 import notFound from "./middleware/notFound";
-import requestLogger from "./middleware/requestLogger";
 import apiV1Routes from "./routes/v1";
 
 const app = express();
@@ -14,7 +14,7 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
-app.use(requestLogger);
+app.use(morgan('combined'));
 
 app.get("/health", (_req, res) => {
   res.status(200).json({ success: true, message: "Server is healthy" });

@@ -5,18 +5,17 @@ import { Job, Queue, Worker } from "bullmq";
 
 import env from "../config/env";
 import { processPublishPostJob } from "../jobs/publishPostJob";
-import logger from "../utils/logger";
 
 let postQueue: Queue | null = null;
 let worker: Worker | null = null;
 
 const initializePostQueue = async (): Promise<void> => {
   if (!env.redisUrl) {
-    logger.warn("REDIS_URL missing. Post queue is disabled.");
+    console.warn("REDIS_URL missing. Post queue is disabled.");
     return;
   }
   if (postQueue && worker) {
-    logger.info("BullMQ post queue already initialized");
+    console.log("BullMQ post queue already initialized");
     return;
   }
   const connection = new Redis(env.redisUrl, {
@@ -35,19 +34,19 @@ const initializePostQueue = async (): Promise<void> => {
     },
   );
   worker.on("failed", (job, error) => {
-    logger.error({
+    console.error({
       message: "Post publish job failed",
       jobId: job?.id,
       error: error.message,
     });
   });
   worker.on("error", (error) => {
-    logger.error({
+    console.error({
       message: "BullMQ worker error",
       error: error.message,
     });
   });
-  logger.info("BullMQ post queue initialized");
+  console.log("BullMQ post queue initialized");
 };
 
 interface AddSchedulePublishJobParams {
