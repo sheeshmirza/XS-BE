@@ -1,10 +1,12 @@
 import bcrypt from "bcrypt";
-import userRepository from "../repositories/userRepository";
-import env from "../config/env";
-import ApiError from "../utils/ApiError";
+
 import httpStatus from "../constants/httpStatus";
-import tokenService from "./tokenService";
+import env from "../config/env";
 import { randomToken } from "../utils/crypto";
+import ApiError from "../utils/ApiError";
+import userRepository from "../repositories/userRepository";
+import tokenService from "./tokenService";
+
 class AuthService {
   async signup({ email, password }) {
     const exists = await userRepository.findByEmail(email);
@@ -12,17 +14,17 @@ class AuthService {
       throw new ApiError(httpStatus.CONFLICT, "Email is already registered");
     }
     const passwordHash = await bcrypt.hash(password, env.bcryptSaltRounds);
-    const verificationToken = randomToken(24);
-    // Keep signup lean: create account, then trigger asynchronous user-facing actions.
+    const verificationToken = randomToken(32);
     const user = await userRepository.create({
       email,
       password: passwordHash,
-      isVerified: true,
-      emailVerificationToken: null,
-      emailVerificationExpiresAt: null,
+      isVerified: false,
+      emailVerificationToken: verificationToken,
+      emailVerificationExpiresAt: new Date(Date.now() + 15 * 60 * 1000),
     });
     return user;
   }
+
   async verifyEmail(token) {
     const user = await userRepository.findByVerificationToken(token);
     if (
@@ -41,6 +43,7 @@ class AuthService {
     await user.save();
     return user;
   }
+
   async login({ email, password }, metadata) {
     const user = await userRepository.findByEmail(email);
     if (!user) {
@@ -50,15 +53,27 @@ class AuthService {
     if (!isMatch) {
       throw new ApiError(httpStatus.UNAUTHORIZED, "Invalid credentials");
     }
-    // Session pair: stateless access token + persisted refresh token.
+    if (!user.isVerified) {
+      throw new ApiError(
+        httpStatus.FORBIDDEN,
+        "Please verify your email first",
+      );
+    }
     const accessToken = tokenService.generateAccessToken(user._id.toString());
     const refreshToken = await tokenService.generateRefreshToken(
       user._id.toString(),
       metadata,
     );
-    await userRepository.updateById(user._id, { lastLoginAt: new Date() });
-    return { user, accessToken, refreshToken };
+    await userRepository.updateById(user._id, {
+      lastLoginAt: new Date(),
+    });
+    return {
+      user,
+      accessToken,
+      refreshToken,
+    };
   }
+
   async refresh(rawRefreshToken, metadata) {
     const rotated = await tokenService.rotateRefreshToken(
       rawRefreshToken,
@@ -77,23 +92,26 @@ class AuthService {
       refreshToken: rotated.refreshToken,
     };
   }
-  async logout(rawRefreshToken, userId) {
-    if (rawRefreshToken) {
-      await tokenService.revokeRefreshToken(rawRefreshToken);
+
+  async logout(rawRefreshToken) {
+    if (!rawRefreshToken) {
+      return;
     }
-    if (userId) {
-      await tokenService.revokeAllForUser(userId);
-    }
+    await tokenService.revokeRefreshToken(rawRefreshToken);
   }
+
   async forgotPassword(email) {
     const user = await userRepository.findByEmail(email);
-    if (!user) return;
-    const resetToken = randomToken(24);
+    if (!user) {
+      return;
+    }
+    const resetToken = randomToken(32);
     await userRepository.updateById(user._id, {
       resetPasswordToken: resetToken,
       resetPasswordExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
     });
   }
+
   async resetPassword(token, newPassword) {
     const user = await userRepository.findByResetToken(token);
     if (
@@ -106,13 +124,14 @@ class AuthService {
         "Invalid or expired reset token",
       );
     }
-    const hash = await bcrypt.hash(newPassword, env.bcryptSaltRounds);
+    const passwordHash = await bcrypt.hash(newPassword, env.bcryptSaltRounds);
+    await tokenService.revokeAllForUser(user._id);
     await userRepository.updateById(user._id, {
-      password: hash,
+      password: passwordHash,
       resetPasswordToken: null,
       resetPasswordExpiresAt: null,
     });
-    await tokenService.revokeAllForUser(user._id);
   }
 }
+
 export default new AuthService();

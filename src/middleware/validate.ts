@@ -1,7 +1,14 @@
-import ApiError from "../utils/ApiError";
+//Reviewed
+
 import httpStatus from "../constants/httpStatus";
+import ApiError from "../utils/ApiError";
+
 const validate = (schema) => (req, _res, next) => {
-  const payload = { body: req.body, params: req.params, query: req.query };
+  const payload = {
+    body: req.body,
+    params: req.params,
+    query: req.query,
+  };
   const { error, value } = schema.validate(payload, {
     abortEarly: false,
     allowUnknown: false,
@@ -24,4 +31,5 @@ const validate = (schema) => (req, _res, next) => {
   req.query = value.query || {};
   next();
 };
+
 export default validate;
