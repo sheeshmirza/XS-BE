@@ -1,30 +1,83 @@
-import { Queue, Worker } from 'bullmq';
-import Redis from 'ioredis';
-import env from '../config/env';
-import logger from '../utils/logger';
-import { processPublishPostJob } from '../jobs/publishPostJob';
-let postQueue;
-let worker;
-const initializePostQueue = async () => { if (!env.redisUrl) { logger.warn('REDIS_URL missing. Post queue is disabled.');
-    return; }
-  const connection: any = new Redis(env.redisUrl, { maxRetriesPerRequest: null });
-  // Dedicated queue keeps post scheduling isolated from web request lifecycle.
-  postQueue = new Queue('post-publish-queue', { connection });
+//Reviewed
+
+import Redis from "ioredis";
+import { Job, Queue, Worker } from "bullmq";
+
+import env from "../config/env";
+import { processPublishPostJob } from "../jobs/publishPostJob";
+import logger from "../utils/logger";
+
+let postQueue: Queue | null = null;
+let worker: Worker | null = null;
+
+const initializePostQueue = async (): Promise<void> => {
+  if (!env.redisUrl) {
+    logger.warn("REDIS_URL missing. Post queue is disabled.");
+    return;
+  }
+  if (postQueue && worker) {
+    logger.info("BullMQ post queue already initialized");
+    return;
+  }
+  const connection = new Redis(env.redisUrl, {
+    maxRetriesPerRequest: null,
+  });
+  postQueue = new Queue("scheduled-posts-queue", {
+    connection,
+  });
   worker = new Worker(
-    'post-publish-queue',
-    async (job) => { await processPublishPostJob(job.data); },
-    { connection }
+    "scheduled-posts-queue",
+    async (job: Job) => {
+      await processPublishPostJob(job.data);
+    },
+    {
+      connection,
+    },
   );
-  worker.on('failed', (job, error) => { logger.error({ message: 'Post publish job failed', jobId: job?.id, error: error.message }); });
-  logger.info('BullMQ post queue initialized'); };
-const addSchedulePublishJob = async ({ postId, runAt }) => { if (!postQueue) { throw new Error('Post queue is not initialized. Ensure REDIS_URL is configured.'); }
-  // BullMQ delay ensures publish occurs at the exact requested schedule time.
-  const delay = Math.max(0, new Date(runAt).getTime() - Date.now());
+  worker.on("failed", (job, error) => {
+    logger.error({
+      message: "Post publish job failed",
+      jobId: job?.id,
+      error: error.message,
+    });
+  });
+  worker.on("error", (error) => {
+    logger.error({
+      message: "BullMQ worker error",
+      error: error.message,
+    });
+  });
+  logger.info("BullMQ post queue initialized");
+};
+
+interface AddSchedulePublishJobParams {
+  postId: string;
+  runAt: Date | string;
+}
+
+const addSchedulePublishJob = async ({
+  postId,
+  runAt,
+}: AddSchedulePublishJobParams): Promise<void> => {
+  if (!postQueue) {
+    throw new Error(
+      "Post queue is not initialized. Ensure BullMQ is configured.",
+    );
+  }
+  const timestamp = new Date(runAt).getTime();
+  if (Number.isNaN(timestamp)) {
+    throw new Error("Invalid runAt date");
+  }
+  const delay = Math.max(0, timestamp - Date.now());
   await postQueue.add(
-    'publish-post',
+    "publish-post",
     { postId },
-    { delay,
+    {
+      delay,
       removeOnComplete: true,
-      removeOnFail: 1000 }
-  ); };
+      removeOnFail: 1000,
+    },
+  );
+};
+
 export { initializePostQueue, addSchedulePublishJob };
