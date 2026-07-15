@@ -36,6 +36,14 @@ const connectPlatform = asyncHandler(async (req, res) => {
 });
 const oauthCallback = asyncHandler(async (req, res) => {
   const userId = req.query.state?.split(":")[0] || req.query.userId;
+  if (!userId) {
+    return res.status(httpStatus.BAD_REQUEST).json({
+      success: false,
+      message: "Missing user context for OAuth callback",
+      details: null,
+    });
+  }
+
   const socialHandle = await socialService.connectFromCallback(
     userId,
     req.params.platform,

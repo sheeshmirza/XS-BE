@@ -3,5 +3,6 @@
 package-lock.json
 
 #Directories
+coverage
 dist
 node_modules

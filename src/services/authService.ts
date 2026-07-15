@@ -38,8 +38,8 @@ class AuthService {
       );
     }
     user.isVerified = true;
-    user.emailVerificationToken = null;
-    user.emailVerificationExpiresAt = null;
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpiresAt = undefined;
     await user.save();
     return user;
   }
@@ -128,8 +128,8 @@ class AuthService {
     await tokenService.revokeAllForUser(user._id);
     await userRepository.updateById(user._id, {
       password: passwordHash,
-      resetPasswordToken: null,
-      resetPasswordExpiresAt: null,
+      resetPasswordToken: undefined,
+      resetPasswordExpiresAt: undefined,
     });
   }
 }

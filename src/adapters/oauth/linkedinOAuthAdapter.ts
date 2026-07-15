@@ -3,7 +3,7 @@ import BaseOAuthAdapter from "./baseOAuthAdapter";
 class LinkedInOAuthAdapter extends BaseOAuthAdapter {
   buildAuthorizeUrl(
     state,
-    scopes = ["r_liteprofile", "r_emailaddress", "w_member_social"],
+    scopes = ["openid", "profile", "email", "w_member_social"],
   ) {
     const query = qs.stringify({
       response_type: "code",
@@ -38,17 +38,42 @@ class LinkedInOAuthAdapter extends BaseOAuthAdapter {
     });
   }
   async fetchUserProfile(accessToken) {
-    const profile = await this.get(
-      "https://api.linkedin.com/v2/me",
-      accessToken,
-    );
-    return {
-      platformUserId: profile.id,
-      username: profile.localizedFirstName || profile.id,
-      displayName:
-        `${profile.localizedFirstName || ""} ${profile.localizedLastName || ""}`.trim(),
-      profilePicture: "",
-    };
+    try {
+      // New LinkedIn OAuth products expose OpenID userinfo.
+      const profile = await this.get(
+        "https://api.linkedin.com/v2/userinfo",
+        accessToken,
+      );
+
+      return {
+        platformUserId: profile.sub,
+        username: profile.email || profile.name || profile.sub,
+        displayName:
+          profile.name ||
+          `${profile.given_name || ""} ${profile.family_name || ""}`.trim() ||
+          profile.sub,
+        profilePicture: profile.picture || "",
+        metadata: {
+          email: profile.email,
+          emailVerified: profile.email_verified,
+          locale: profile.locale,
+        },
+      };
+    } catch (_error) {
+      // Fallback for legacy apps that still depend on r_liteprofile.
+      const profile = await this.get(
+        "https://api.linkedin.com/v2/me",
+        accessToken,
+      );
+
+      return {
+        platformUserId: profile.id,
+        username: profile.localizedFirstName || profile.id,
+        displayName:
+          `${profile.localizedFirstName || ""} ${profile.localizedLastName || ""}`.trim(),
+        profilePicture: "",
+      };
+    }
   }
 }
 export default LinkedInOAuthAdapter;
