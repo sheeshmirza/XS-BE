@@ -46,6 +46,7 @@ class PostService {
       scheduledTime: payload.scheduledTime || null,
       status: payload.status || postStatus.DRAFT,
       selectedPlatforms: payload.selectedPlatforms || [],
+      selectedAccountIds: payload.selectedAccountIds || [],
     });
   }
   async listPosts(userId, query, options) {
@@ -89,24 +90,28 @@ class PostService {
     }
     return deleted;
   }
-  async publishPost(userId, postId, platformList = []) {
+  async publishPost(userId, postId, platformList = [], accountIdList = []) {
     const post = await this.getPost(userId, postId);
     const selectedPlatforms =
       platformList.length > 0 ? platformList : post.selectedPlatforms;
-    if (!selectedPlatforms.length) {
+    const selectedAccountIds =
+      accountIdList.length > 0 ? accountIdList : post.selectedAccountIds || [];
+
+    if (!selectedPlatforms.length && !selectedAccountIds.length) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
-        "No platform selected for publishing",
+        "No account or platform selected for publishing",
       );
     }
-    const handles = await socialService.listHandlesForPlatforms(
-      userId,
-      selectedPlatforms,
-    );
+
+    const handles = selectedAccountIds.length
+      ? await socialHandleRepository.findByUserAndIds(userId, selectedAccountIds)
+      : await socialService.listHandlesForPlatforms(userId, selectedPlatforms);
+
     if (!handles.length) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
-        "No connected social handles available for selected platforms",
+        "No connected social handles available for selected accounts/platforms",
       );
     }
     // Fan-out publish: one post can target multiple connected handles across platforms.
@@ -215,6 +220,7 @@ class PostService {
       post.userId.toString(),
       post._id.toString(),
       post.selectedPlatforms,
+      post.selectedAccountIds || [],
     );
     await notificationService.createNotification({
       userId: post.userId,

@@ -39,6 +39,7 @@ const postSchema = new mongoose.Schema(
     selectedPlatforms: { type: [String],
       enum: ['linkedin', 'instagram', 'facebook', 'x'],
       default: [] },
+    selectedAccountIds: { type: [String], default: [] },
     platformResponses: { type: [platformResponseSchema], default: [] } },
   { timestamps: true,
     versionKey: false }

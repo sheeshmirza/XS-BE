@@ -80,16 +80,17 @@ class SocialService {
           platformAccessTokenExpiry: new Date(Date.now() + expiresIn * 1000),
           platformScopes: scopes,
           isConnected: true,
-          metadata: profile.metadata || {},
+          metadata: {
+            ...(profile.metadata || {}),
+            accountType: "personal",
+          },
         },
       );
 
       let linkedPageCount = 0;
-      if (typeof adapter.fetchManagedPages === "function") {
-        const managedPages = await adapter.fetchManagedPages(
-          accessToken,
-          profile,
-        );
+      const fetchManagedPages = (adapter as any)?.fetchManagedPages;
+      if (typeof fetchManagedPages === "function") {
+        const managedPages = await fetchManagedPages(accessToken, profile);
 
         if (Array.isArray(managedPages) && managedPages.length > 0) {
           for (const page of managedPages) {

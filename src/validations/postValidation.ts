@@ -13,6 +13,7 @@ const createPost = Joi.object({ body: Joi.object({ title: Joi.string().max(140).
     visibility: Joi.string().valid('public', 'private').default('public'),
     timezone: Joi.string().optional(),
     selectedPlatforms: Joi.array().items(Joi.string().valid(...platforms)).optional(),
+    selectedAccountIds: Joi.array().items(Joi.string()).optional(),
     scheduledTime: Joi.date().iso().optional(),
     status: Joi.string().valid('draft', 'scheduled').optional() }).required(),
   params: Joi.object({}).required(),
@@ -38,10 +39,12 @@ const updatePost = Joi.object({ body: Joi.object({ title: Joi.string().max(140).
     visibility: Joi.string().valid('public', 'private').optional(),
     timezone: Joi.string().optional(),
     selectedPlatforms: Joi.array().items(Joi.string().valid(...platforms)).optional(),
+    selectedAccountIds: Joi.array().items(Joi.string()).optional(),
     status: Joi.string().valid('draft', 'scheduled', 'published', 'failed').optional() }).required(),
   params: Joi.object({ id: Joi.string().required() }).required(),
   query: Joi.object({}).required() });
-const publishPost = Joi.object({ body: Joi.object({ platforms: Joi.array().items(Joi.string().valid(...platforms)).optional() }).required(),
+const publishPost = Joi.object({ body: Joi.object({ platforms: Joi.array().items(Joi.string().valid(...platforms)).optional(),
+    accountIds: Joi.array().items(Joi.string()).optional() }).required(),
   params: Joi.object({ id: Joi.string().required() }).required(),
   query: Joi.object({}).required() });
 const schedulePost = Joi.object({ body: Joi.object({ scheduledTime: Joi.date().iso().required(),

@@ -73,5 +73,13 @@ class SocialHandleRepository {
       isConnected: true,
     });
   }
+
+  findByUserAndIds(userId, ids) {
+    return SocialHandle.find({
+      userId,
+      _id: { $in: ids },
+      isConnected: true,
+    });
+  }
 }
 export default new SocialHandleRepository();

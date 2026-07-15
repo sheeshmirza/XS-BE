@@ -44,6 +44,7 @@ const publishPost = asyncHandler(async (req, res) => {
     req.user._id.toString(),
     req.params.id,
     req.body.platforms || [],
+    req.body.accountIds || [],
   );
   return sendSuccess(res, httpStatus.OK, "Post publish attempted", post);
 });

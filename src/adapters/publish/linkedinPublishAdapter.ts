@@ -12,8 +12,17 @@ class LinkedInPublishAdapter extends BasePublishAdapter {
           raw: {},
         };
       }
+
+      const accountType = handle?.metadata?.accountType || "personal";
+      const isOrganization = accountType === "organization";
+      const organizationUrn = handle?.metadata?.organizationUrn
+        ? String(handle.metadata.organizationUrn)
+        : `urn:li:organization:${handle.platformUserId}`;
+      const personUrn = `urn:li:person:${handle.platformUserId}`;
+      const authorUrn = isOrganization ? organizationUrn : personUrn;
+
       const payload = {
-        author: `urn:li:person:${handle.platformUserId}`,
+        author: authorUrn,
         lifecycleState: "PUBLISHED",
         specificContent: {
           "com.linkedin.ugc.ShareContent": {
