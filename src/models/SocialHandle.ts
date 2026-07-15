@@ -29,8 +29,8 @@ const socialHandleSchema = new mongoose.Schema(
 );
 
 socialHandleSchema.index(
-  { userId: 1, platform: 1 },
-  { unique: true, name: "uniq_user_platform" },
+  { userId: 1, platform: 1, platformUserId: 1 },
+  { unique: true, name: "uniq_user_platform_identity" },
 );
 
 export default mongoose.model("SocialHandle", socialHandleSchema);

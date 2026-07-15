@@ -53,15 +53,25 @@ class SocialService {
       );
     }
     const profile: any = await adapter.fetchUserProfile(accessToken);
+
+    const profilePlatformUserId = String(profile.platformUserId || "").trim();
+    if (!profilePlatformUserId) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "OAuth provider did not return a valid account identity",
+      );
+    }
+
     let socialHandle;
     try {
-      socialHandle = await socialHandleRepository.upsertByUserPlatform(
+      socialHandle = await socialHandleRepository.upsertByUserPlatformIdentity(
         userId,
         platform,
+        profilePlatformUserId,
         {
           userId,
           platform,
-          platformUserId: String(profile.platformUserId),
+          platformUserId: profilePlatformUserId,
           username: profile.username || "",
           userDisplayName: profile.displayName || "",
           userProfilePicture: profile.profilePicture || "",
@@ -73,11 +83,66 @@ class SocialService {
           metadata: profile.metadata || {},
         },
       );
+
+      let linkedPageCount = 0;
+      if (typeof adapter.fetchManagedPages === "function") {
+        const managedPages = await adapter.fetchManagedPages(
+          accessToken,
+          profile,
+        );
+
+        if (Array.isArray(managedPages) && managedPages.length > 0) {
+          for (const page of managedPages) {
+            const pageIdentity = String(page.platformUserId || page.id || "").trim();
+            if (!pageIdentity) {
+              continue;
+            }
+
+            const pageToken = page.accessToken || accessToken;
+            if (!pageToken) {
+              continue;
+            }
+
+            await socialHandleRepository.upsertByUserPlatformIdentity(
+              userId,
+              platform,
+              pageIdentity,
+              {
+                userId,
+                platform,
+                platformUserId: pageIdentity,
+                username: page.username || page.name || "",
+                userDisplayName: page.displayName || page.name || "",
+                userProfilePicture: page.profilePicture || "",
+                platformAccessToken: pageToken,
+                platformRefreshToken: refreshToken,
+                platformAccessTokenExpiry: new Date(Date.now() + expiresIn * 1000),
+                platformScopes: scopes,
+                isConnected: true,
+                metadata: {
+                  ...(page.metadata || {}),
+                  accountType: page.accountType || "page",
+                  parentPlatformUserId: profilePlatformUserId,
+                },
+              },
+            );
+
+            linkedPageCount += 1;
+          }
+        }
+      }
+
+      if (linkedPageCount > 0) {
+        socialHandle = {
+          ...socialHandle.toObject(),
+          linkedPageCount,
+        };
+      }
     } catch (error) {
       if ((error as any)?.code === 11000) {
         throw new ApiError(
           httpStatus.CONFLICT,
-          `You can connect only one ${platform} account per user`,
+          `This ${platform} account/page is already linked`,
         );
       }
       throw error;
