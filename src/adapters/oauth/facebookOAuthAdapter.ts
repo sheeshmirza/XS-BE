@@ -1,5 +1,6 @@
 import qs from "querystring";
 import BaseOAuthAdapter from "./baseOAuthAdapter";
+import { FacebookAccountType } from "../../constants/accountTypes";
 
 class FacebookOAuthAdapter extends BaseOAuthAdapter {
   buildAuthorizeUrl(
@@ -58,7 +59,7 @@ class FacebookOAuthAdapter extends BaseOAuthAdapter {
         displayName: page.name || "Facebook Page",
         profilePicture: page?.picture?.data?.url || "",
         accessToken: page.access_token || accessToken,
-        accountType: "page",
+        accountType: FacebookAccountType.PAGE,
         metadata: {
           category: page.category || "",
           perms: Array.isArray(page.perms) ? page.perms : [],

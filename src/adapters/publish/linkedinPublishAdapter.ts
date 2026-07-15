@@ -1,5 +1,6 @@
 import axios from "axios";
 import BasePublishAdapter from "./basePublishAdapter";
+import { isLinkedInOrganizationAccountType } from "../../constants/accountTypes";
 
 class LinkedInPublishAdapter extends BasePublishAdapter {
   async publish(post, handle) {
@@ -13,8 +14,8 @@ class LinkedInPublishAdapter extends BasePublishAdapter {
         };
       }
 
-      const accountType = handle?.metadata?.accountType || "personal";
-      const isOrganization = accountType === "organization";
+      const accountType = handle?.metadata?.accountType;
+      const isOrganization = isLinkedInOrganizationAccountType(accountType);
       const organizationUrn = handle?.metadata?.organizationUrn
         ? String(handle.metadata.organizationUrn)
         : `urn:li:organization:${handle.platformUserId}`;
