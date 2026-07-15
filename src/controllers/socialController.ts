@@ -3,6 +3,7 @@ import { sendSuccess } from "../utils/response";
 import httpStatus from "../constants/httpStatus";
 import socialService from "../services/socialService";
 import { parsePagination } from "../utils/pagination";
+
 const listAccounts = asyncHandler(async (req, res) => {
   const { page, limit, skip } = parsePagination(req.query);
   const sort = {

@@ -8,6 +8,29 @@ import ApiError from "../utils/ApiError";
 import httpStatus from "../constants/httpStatus";
 import { getPublishAdapter } from "../adapters/publish";
 import { addSchedulePublishJob } from "../queue/postQueue";
+import socialHandleRepository from "../repositories/socialHandleRepository";
+
+const isRevokedLinkedInToken = (platform, result) => {
+  if (platform !== "linkedin" || result?.status !== "failed") {
+    return false;
+  }
+
+  const raw = result?.raw || {};
+  const message = String(result?.message || raw?.message || "").toLowerCase();
+  const code = String(raw?.code || "").toUpperCase();
+  const statusCode = Number(raw?.status);
+  const serviceErrorCode = Number(raw?.serviceErrorCode);
+
+  if (code === "REVOKED_ACCESS_TOKEN" || serviceErrorCode === 65601) {
+    return true;
+  }
+
+  return (
+    statusCode === 401 &&
+    message.includes("token") &&
+    message.includes("revoked")
+  );
+};
 class PostService {
   createPost(userId, payload) {
     return postRepository.create({
@@ -100,12 +123,35 @@ class PostService {
         continue;
       }
       const result = await adapter.publish(post, handle);
+      let resultMessage = (result as any).message || "";
+
+      if (isRevokedLinkedInToken(handle.platform, result)) {
+        await socialHandleRepository.updateByIdAndUserId(handle._id, userId, {
+          isConnected: false,
+          platformAccessToken: "",
+          platformRefreshToken: "",
+          platformAccessTokenExpiry: null,
+        });
+
+        await notificationService.createNotification({
+          userId,
+          type: notificationTypes.TOKEN_EXPIRED,
+          title: "LinkedIn re-authentication required",
+          message:
+            "Your LinkedIn session was revoked. Reconnect LinkedIn from the Accounts page.",
+          metadata: { platform: handle.platform, socialHandleId: handle._id },
+        });
+
+        resultMessage =
+          "LinkedIn access was revoked. Reconnect LinkedIn from Accounts, then publish again.";
+      }
+
       responseItems.push({
         platform: handle.platform,
         platformPostId: (result as any).platformPostId || "",
         url: (result as any).url || "",
         status: (result as any).status,
-        message: (result as any).message || "",
+        message: resultMessage,
         raw: (result as any).raw || {},
       });
     }
