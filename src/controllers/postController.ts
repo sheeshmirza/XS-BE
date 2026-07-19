@@ -45,6 +45,7 @@ const publishPost = asyncHandler(async (req, res) => {
     req.params.id,
     req.body.platforms || [],
     req.body.accountIds || [],
+    req.body.recurrence,
   );
   return sendSuccess(res, httpStatus.OK, "Post publish attempted", post);
 });
@@ -52,8 +53,7 @@ const schedulePost = asyncHandler(async (req, res) => {
   const post = await postService.schedulePost(
     req.user._id.toString(),
     req.params.id,
-    req.body.scheduledTime,
-    req.body.timezone,
+    req.body,
   );
   return sendSuccess(res, httpStatus.OK, "Post scheduled", post);
 });

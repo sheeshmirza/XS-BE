@@ -32,6 +32,79 @@ const isRevokedLinkedInToken = (platform, result) => {
   );
 };
 class PostService {
+  private getRecurrenceValue(value: string) {
+    const allowed = new Set([
+      "once",
+      "hourly",
+      "daily",
+      "weekly",
+      "monthly",
+      "yearly",
+    ]);
+    const normalized = String(value || "once")
+      .trim()
+      .toLowerCase();
+    return allowed.has(normalized) ? normalized : "once";
+  }
+
+  private computeNextRun(currentRunAt: Date, recurrence: string) {
+    const next = new Date(currentRunAt);
+    switch (recurrence) {
+      case "hourly":
+        next.setHours(next.getHours() + 1);
+        break;
+      case "daily":
+        next.setDate(next.getDate() + 1);
+        break;
+      case "weekly":
+        next.setDate(next.getDate() + 7);
+        break;
+      case "monthly":
+        next.setMonth(next.getMonth() + 1);
+        break;
+      case "yearly":
+        next.setFullYear(next.getFullYear() + 1);
+        break;
+      default:
+        return null;
+    }
+    return next;
+  }
+
+  private resolveScheduledDateTime(scheduleInput: any) {
+    const scheduledTime = scheduleInput?.scheduledTime;
+    const date = String(scheduleInput?.date || "").trim();
+    const time = String(scheduleInput?.time || "").trim();
+
+    if (scheduledTime) {
+      const resolved = new Date(scheduledTime);
+      if (Number.isNaN(resolved.getTime())) {
+        throw new ApiError(
+          httpStatus.BAD_REQUEST,
+          "Invalid scheduledTime value",
+        );
+      }
+      return resolved;
+    }
+
+    if (!date || !time) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Provide scheduledTime or both date and time",
+      );
+    }
+
+    const resolved = new Date(`${date}T${time}`);
+    if (Number.isNaN(resolved.getTime())) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Invalid date/time values for scheduling",
+      );
+    }
+
+    return resolved;
+  }
+
   createPost(userId, payload) {
     return postRepository.create({
       userId,
@@ -44,6 +117,7 @@ class PostService {
       visibility: payload.visibility,
       timezone: payload.timezone || "UTC",
       scheduledTime: payload.scheduledTime || null,
+      recurrence: this.getRecurrenceValue(payload.recurrence),
       status: payload.status || postStatus.DRAFT,
       selectedPlatforms: payload.selectedPlatforms || [],
       selectedAccountIds: payload.selectedAccountIds || [],
@@ -90,7 +164,14 @@ class PostService {
     }
     return deleted;
   }
-  async publishPost(userId, postId, platformList = [], accountIdList = []) {
+
+  async publishPost(
+    userId,
+    postId,
+    platformList = [],
+    accountIdList = [],
+    recurrenceInput?: string,
+  ) {
     const post = await this.getPost(userId, postId);
     const selectedPlatforms =
       platformList.length > 0 ? platformList : post.selectedPlatforms;
@@ -105,7 +186,10 @@ class PostService {
     }
 
     const handles = selectedAccountIds.length
-      ? await socialHandleRepository.findByUserAndIds(userId, selectedAccountIds)
+      ? await socialHandleRepository.findByUserAndIds(
+          userId,
+          selectedAccountIds,
+        )
       : await socialService.listHandlesForPlatforms(userId, selectedPlatforms);
 
     if (!handles.length) {
@@ -170,6 +254,10 @@ class PostService {
       platformResponses: responseItems,
       publishedTime: new Date(),
       status: nextStatus,
+      recurrence:
+        recurrenceInput !== undefined
+          ? this.getRecurrenceValue(recurrenceInput)
+          : post.recurrence,
     });
     await notificationService.createNotification({
       userId,
@@ -191,37 +279,94 @@ class PostService {
         totalPlatforms: responseItems.length,
       },
     });
+
+    const normalizedRecurrence = this.getRecurrenceValue(
+      recurrenceInput || "once",
+    );
+    if (
+      nextStatus === postStatus.PUBLISHED &&
+      normalizedRecurrence !== "once"
+    ) {
+      const baseRunAt = new Date();
+      const nextRunAt = this.computeNextRun(baseRunAt, normalizedRecurrence);
+
+      if (nextRunAt && !Number.isNaN(nextRunAt.getTime())) {
+        const recurrentPost = await postRepository.updateByIdAndUserId(
+          postId,
+          userId,
+          {
+            scheduledTime: nextRunAt,
+            recurrence: normalizedRecurrence,
+            status: postStatus.SCHEDULED,
+          },
+        );
+
+        await addSchedulePublishJob({
+          postId: recurrentPost._id.toString(),
+          runAt: nextRunAt,
+        });
+
+        return recurrentPost;
+      }
+    }
+
     return updated;
   }
-  async schedulePost(userId, postId, scheduledTime, timezone) {
+  async schedulePost(userId, postId, scheduleInput: any) {
     const post = await this.getPost(userId, postId);
-    if (new Date(scheduledTime).getTime() <= Date.now()) {
+    const resolvedScheduledTime = this.resolveScheduledDateTime(scheduleInput);
+
+    if (resolvedScheduledTime.getTime() <= Date.now()) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
         "Scheduled time must be in the future",
       );
     }
     const updated = await postRepository.updateByIdAndUserId(post._id, userId, {
-      scheduledTime,
-      timezone: timezone || post.timezone,
+      scheduledTime: resolvedScheduledTime,
+      timezone: scheduleInput?.timezone || post.timezone,
+      recurrence: this.getRecurrenceValue(scheduleInput?.recurrence),
       status: postStatus.SCHEDULED,
     });
     // Queue-driven scheduling enables reliable delayed execution and retries.
     await addSchedulePublishJob({
       postId: updated._id.toString(),
-      runAt: scheduledTime,
+      runAt: resolvedScheduledTime,
     });
     return updated;
   }
   async publishScheduledPost(postId) {
     const post = await postRepository.findById(postId);
     if (!post) return;
-    await this.publishPost(
+    const publishedPost: any = await this.publishPost(
       post.userId.toString(),
       post._id.toString(),
       post.selectedPlatforms,
       post.selectedAccountIds || [],
     );
+
+    const recurrence = this.getRecurrenceValue(post?.recurrence);
+    if (
+      publishedPost?.status === postStatus.PUBLISHED &&
+      recurrence !== "once"
+    ) {
+      const baseRunAt = post?.scheduledTime
+        ? new Date(post.scheduledTime)
+        : new Date();
+      const nextRunAt = this.computeNextRun(baseRunAt, recurrence);
+
+      if (nextRunAt && !Number.isNaN(nextRunAt.getTime())) {
+        await postRepository.updateByIdAndUserId(post._id, post.userId, {
+          scheduledTime: nextRunAt,
+          status: postStatus.SCHEDULED,
+        });
+        await addSchedulePublishJob({
+          postId: post._id.toString(),
+          runAt: nextRunAt,
+        });
+      }
+    }
+
     await notificationService.createNotification({
       userId: post.userId,
       type: notificationTypes.SCHEDULED_POST_PUBLISHED,
