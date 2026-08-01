@@ -15,16 +15,16 @@ class TokenService { // Access tokens are stateless JWTs and short-lived.
   // Refresh tokens are random opaque values persisted as SHA-256 hashes for safer storage.
   async generateRefreshToken(userId, metadata: any = {}) { const rawToken = randomToken(48);
     const tokenHash = sha256(rawToken);
-    const expiresAt = new Date(Date.now() + parseDurationToMs(env.jwtRefreshExpiresIn));
+    const tokenExpiresAt = new Date(Date.now() + parseDurationToMs(env.jwtRefreshExpiresIn));
     await refreshTokenRepository.create({ userId,
       tokenHash,
-      expiresAt,
+      tokenExpiresAt,
       userAgent: metadata.userAgent || '',
-      ipAddress: metadata.ipAddress || '' });
+      userIPAddress: metadata.userIPAddress || '' });
     return rawToken; }
   async rotateRefreshToken(rawToken, metadata: any = {}) { const tokenHash = sha256(rawToken);
     const tokenDoc = await refreshTokenRepository.findByTokenHash(tokenHash);
-    if (!tokenDoc || tokenDoc.revokedAt || tokenDoc.expiresAt < new Date()) { return null; }
+    if (!tokenDoc || tokenDoc.tokenRevokedAt || tokenDoc.tokenExpiresAt < new Date()) { return null; }
     // Rotation invalidates the previous refresh token to reduce replay risk.
     await refreshTokenRepository.revokeById(tokenDoc._id);
     const newRefreshToken = await this.generateRefreshToken(tokenDoc.userId, metadata);
@@ -34,7 +34,7 @@ class TokenService { // Access tokens are stateless JWTs and short-lived.
       refreshToken: newRefreshToken }; }
   async revokeRefreshToken(rawToken) { const tokenHash = sha256(rawToken);
     const tokenDoc = await refreshTokenRepository.findByTokenHash(tokenHash);
-    if (!tokenDoc || tokenDoc.revokedAt) return false;
+    if (!tokenDoc || tokenDoc.tokenRevokedAt) return false;
     await refreshTokenRepository.revokeById(tokenDoc._id);
     return true; }
   async revokeAllForUser(userId) { await refreshTokenRepository.revokeAllByUserId(userId); } }

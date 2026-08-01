@@ -1,22 +1,32 @@
-import mongoose from 'mongoose';
+//Done
+
+import mongoose from "mongoose";
+
 const notificationSchema = new mongoose.Schema(
-  { userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-    type: { type: String,
+  {
+    isRead: { type: Boolean, default: false },
+    message: { type: String, required: true },
+    metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+    title: { type: String, required: true },
+    type: {
+      type: String,
       enum: [
-        'social_connected',
-        'token_expired',
-        'post_published',
-        'post_failed',
-        'scheduled_post_published'
+        "post_failed",
+        "post_published",
+        "scheduled_post_published",
+        "social_connected",
+        "token_expired",
       ],
       required: true,
-      index: true },
-    title: { type: String, required: true },
-    message: { type: String, required: true },
-    isRead: { type: Boolean, default: false, index: true },
-    metadata: { type: mongoose.Schema.Types.Mixed, default: {} } },
-  { timestamps: true,
-    versionKey: false }
+    },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
+  },
+  { timestamps: true, versionKey: false },
 );
-notificationSchema.index({ userId: 1, isRead: 1, createdAt: -1 });
-export default mongoose.model('Notification', notificationSchema);
+
+export default mongoose.model("Notification", notificationSchema);

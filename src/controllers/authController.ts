@@ -25,7 +25,7 @@ const verifyEmail = asyncHandler(async (req, res) => {
 
 const login = asyncHandler(async (req, res) => {
   const metadata = {
-    ipAddress: req.ip || "",
+    userIPAddress: req.ip || "",
     userAgent: req.headers["user-agent"] || "",
   };
   const { user, accessToken, refreshToken } = await authService.login(
@@ -43,7 +43,7 @@ const login = asyncHandler(async (req, res) => {
 
 const refresh = asyncHandler(async (req, res) => {
   const metadata = {
-    ipAddress: req.ip || "",
+    userIPAddress: req.ip || "",
     userAgent: req.headers["user-agent"] || "",
   };
   const result = await authService.refresh(req.body.refreshToken, metadata);
