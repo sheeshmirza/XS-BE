@@ -5,7 +5,7 @@ const platformResponseSchema = new mongoose.Schema(
     message: { type: String, default: "" },
     platform: {
       type: String,
-      enum: ["facebook", "instagram", "linkedin", "twitter", "x", "youtube"],
+      enum: ["facebook", "instagram", "linkedin", "x", "youtube"],
       required: true,
     },
     platformPostId: { type: String, default: "" },
@@ -50,7 +50,7 @@ const postSchema = new mongoose.Schema(
     selectedAccountIds: { type: [String], default: [] },
     selectedPlatforms: {
       type: [String],
-      enum: ["facebook", "instagram", "linkedin", "twitter", "x", "youtube"],
+      enum: ["facebook", "instagram", "linkedin", "x", "youtube"],
       default: [],
     },
     status: {
