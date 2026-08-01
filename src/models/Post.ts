@@ -1,77 +1,79 @@
 import mongoose from "mongoose";
+
 const platformResponseSchema = new mongoose.Schema(
   {
+    message: { type: String, default: "" },
     platform: {
       type: String,
-      enum: ["linkedin", "instagram", "facebook", "x", "twitter", "youtube"],
+      enum: ["facebook", "instagram", "linkedin", "twitter", "x", "youtube"],
       required: true,
     },
     platformPostId: { type: String, default: "" },
-    url: { type: String, default: "" },
-    status: { type: String, enum: ["success", "failed"], required: true },
-    message: { type: String, default: "" },
     raw: { type: mongoose.Schema.Types.Mixed, default: {} },
+    status: { type: String, enum: ["failed", "success"], required: true },
+    url: { type: String, default: "" },
   },
   { _id: false },
 );
+
 const mediaSchema = new mongoose.Schema(
   {
-    type: { type: String, enum: ["image", "video", "gif"], required: true },
-    url: { type: String, required: true },
     mimeType: { type: String, default: "" },
     size: { type: Number, default: 0 },
+    type: { type: String, enum: ["gif", "image", "video"], required: true },
+    url: { type: String, required: true },
   },
   { _id: false },
 );
+
 const postSchema = new mongoose.Schema(
   {
+    caption: { type: String, default: "" },
+    hashtags: { type: [String], default: [] },
+    media: { type: [mediaSchema], default: [] },
+    mentions: { type: [String], default: [] },
+    platformResponses: { type: [platformResponseSchema], default: [] },
+    postType: {
+      type: String,
+      enum: ["gif", "image", "mixed", "text", "video"],
+      default: "text",
+      index: true,
+    },
+    publishedTime: { type: Date, default: null, index: true },
+    recurrence: {
+      type: String,
+      enum: ["daily", "hourly", "monthly", "once", "weekly", "yearly"],
+      default: "once",
+      index: true,
+    },
+    scheduledTime: { type: Date, default: null, index: true },
+    selectedAccountIds: { type: [String], default: [] },
+    selectedPlatforms: {
+      type: [String],
+      enum: ["facebook", "instagram", "linkedin", "twitter", "x", "youtube"],
+      default: [],
+    },
+    status: {
+      type: String,
+      enum: ["draft", "failed", "published", "scheduled"],
+      default: "draft",
+      index: true,
+    },
+    timezone: { type: String, default: "UTC" },
+    title: { type: String, trim: true, default: "" },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
       index: true,
     },
-    title: { type: String, trim: true, default: "" },
-    caption: { type: String, default: "" },
-    hashtags: { type: [String], default: [] },
-    mentions: { type: [String], default: [] },
-    media: { type: [mediaSchema], default: [] },
-    postType: {
-      type: String,
-      enum: ["text", "image", "video", "gif", "mixed"],
-      default: "text",
-      index: true,
-    },
     visibility: {
       type: String,
-      enum: ["public", "private"],
+      enum: ["private", "public"],
       default: "public",
     },
-    timezone: { type: String, default: "UTC" },
-    scheduledTime: { type: Date, default: null, index: true },
-    recurrence: {
-      type: String,
-      enum: ["once", "hourly", "daily", "weekly", "monthly", "yearly"],
-      default: "once",
-      index: true,
-    },
-    publishedTime: { type: Date, default: null, index: true },
-    status: {
-      type: String,
-      enum: ["draft", "scheduled", "published", "failed"],
-      default: "draft",
-      index: true,
-    },
-    selectedPlatforms: {
-      type: [String],
-      enum: ["linkedin", "instagram", "facebook", "x", "twitter", "youtube"],
-      default: [],
-    },
-    selectedAccountIds: { type: [String], default: [] },
-    platformResponses: { type: [platformResponseSchema], default: [] },
   },
   { timestamps: true, versionKey: false },
 );
-postSchema.index({ userId: 1, createdAt: -1 });
-postSchema.index({ userId: 1, status: 1, scheduledTime: 1 });
+
 export default mongoose.model("Post", postSchema);
