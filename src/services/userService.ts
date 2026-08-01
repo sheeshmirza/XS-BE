@@ -12,7 +12,6 @@ class UserService {
   async updateProfile(userId, payload) {
     const updatePayload = {
       fullName: payload.fullName,
-      avatarUrl: payload.avatarUrl,
       timezone: payload.timezone,
     };
     return userRepository.updateById(userId, updatePayload);

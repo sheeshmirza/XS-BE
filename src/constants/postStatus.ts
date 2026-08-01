@@ -1,6 +1,8 @@
+//Done
+
 export default {
   DRAFT: "draft",
-  SCHEDULED: "scheduled",
-  PUBLISHED: "published",
   FAILED: "failed",
+  PUBLISHED: "published",
+  SCHEDULED: "scheduled",
 };

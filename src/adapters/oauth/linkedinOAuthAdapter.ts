@@ -1,15 +1,24 @@
-import qs from "querystring";
 import axios from "axios";
-import BaseOAuthAdapter from "./baseOAuthAdapter";
+import qs from "querystring";
+
 import { LinkedInAccountType } from "../../constants/accountTypes";
+import BaseOAuthAdapter from "./baseOAuthAdapter";
 
 const LINKEDIN_OAUTH_SCOPES = [
+  "email",
   "openid",
   "profile",
-  "email",
-  "w_member_social",
+  "r_1st_connections_size",
+  "r_ads",
+  "r_ads_reporting",
+  "r_basicprofile",
+  "r_events",
   "r_organization_admin",
   "r_organization_social",
+  "rw_ads",
+  "rw_events",
+  "rw_organization_admin",
+  "w_member_social",
   "w_organization_social",
 ];
 
@@ -26,7 +35,6 @@ class LinkedInOAuthAdapter extends BaseOAuthAdapter {
 
   buildAuthorizeUrl(state) {
     const requestedScopes = LINKEDIN_OAUTH_SCOPES;
-
     const query = qs.stringify({
       response_type: "code",
       client_id: this.config.clientId,
@@ -36,6 +44,7 @@ class LinkedInOAuthAdapter extends BaseOAuthAdapter {
     });
     return `https://www.linkedin.com/oauth/v2/authorization?${query}`;
   }
+
   async exchangeCodeForToken(code) {
     const body = qs.stringify({
       grant_type: "authorization_code",
@@ -48,6 +57,7 @@ class LinkedInOAuthAdapter extends BaseOAuthAdapter {
       "Content-Type": "application/x-www-form-urlencoded",
     });
   }
+
   async refreshToken(refreshToken) {
     const body = qs.stringify({
       grant_type: "refresh_token",
@@ -59,6 +69,7 @@ class LinkedInOAuthAdapter extends BaseOAuthAdapter {
       "Content-Type": "application/x-www-form-urlencoded",
     });
   }
+
   async fetchUserProfile(accessToken) {
     try {
       // New LinkedIn OAuth products expose OpenID userinfo.
@@ -66,14 +77,10 @@ class LinkedInOAuthAdapter extends BaseOAuthAdapter {
         "https://api.linkedin.com/v2/userinfo",
         accessToken,
       );
-
       return {
         platformUserId: profile.sub,
         username: profile.email || profile.name || profile.sub,
-        displayName:
-          profile.name ||
-          `${profile.given_name || ""} ${profile.family_name || ""}`.trim() ||
-          profile.sub,
+        displayName: profile.name || profile.sub,
         profilePicture: profile.picture || "",
         metadata: {
           subjectId: profile.sub,
@@ -88,7 +95,6 @@ class LinkedInOAuthAdapter extends BaseOAuthAdapter {
         "https://api.linkedin.com/v2/me",
         accessToken,
       );
-
       return {
         platformUserId: profile.id,
         username: profile.localizedFirstName || profile.id,
@@ -131,7 +137,6 @@ class LinkedInOAuthAdapter extends BaseOAuthAdapter {
     if (!value) {
       return "";
     }
-
     if (typeof value === "object") {
       const candidate =
         value?.id ||
@@ -144,7 +149,6 @@ class LinkedInOAuthAdapter extends BaseOAuthAdapter {
         "";
       return this.normalizeOrganizationId(candidate);
     }
-
     return String(value)
       .replace(/^urn:li:(organization|company):/, "")
       .trim();
@@ -197,7 +201,7 @@ class LinkedInOAuthAdapter extends BaseOAuthAdapter {
           method: "GET",
           url: req.url,
           params: req.params,
-          headers: this.redactHeaders(req.headers),
+          headers: req.headers,
         });
         const response = await axios.get(req.url, {
           headers: req.headers,
@@ -217,10 +221,8 @@ class LinkedInOAuthAdapter extends BaseOAuthAdapter {
           status: error?.response?.status || null,
           data: error?.response?.data || null,
         });
-        // Try next endpoint variant.
       }
     }
-
     return null;
   }
 
@@ -255,7 +257,6 @@ class LinkedInOAuthAdapter extends BaseOAuthAdapter {
         },
       },
     ];
-
     const collectElements = (payload) => {
       if (Array.isArray(payload?.elements)) {
         return payload.elements;
@@ -268,14 +269,12 @@ class LinkedInOAuthAdapter extends BaseOAuthAdapter {
       }
       return [];
     };
-
     const fetchVariantElements = async (variant) => {
       const pageSize = Number(variant?.params?.count || 100);
       const maxPages = 20;
       let start = 0;
       let page = 0;
       const aggregated = [];
-
       while (page < maxPages) {
         this.logLinkedInDebug("request", {
           method: "GET",
@@ -285,7 +284,7 @@ class LinkedInOAuthAdapter extends BaseOAuthAdapter {
             start,
             count: pageSize,
           },
-          headers: this.redactHeaders(variant.headers),
+          headers: variant.headers,
         });
         const response = await axios.get(variant.url, {
           headers: variant.headers,
@@ -301,19 +300,15 @@ class LinkedInOAuthAdapter extends BaseOAuthAdapter {
           status: response.status,
           data: response.data,
         });
-
         const payload = response?.data || {};
         const nextElements = collectElements(payload);
         if (!nextElements.length) {
           break;
         }
-
         aggregated.push(...nextElements);
-
         const total = Number(payload?.paging?.total || 0);
         start += pageSize;
         page += 1;
-
         if (total > 0 && start >= total) {
           break;
         }
@@ -321,10 +316,8 @@ class LinkedInOAuthAdapter extends BaseOAuthAdapter {
           break;
         }
       }
-
       return aggregated;
     };
-
     let elements = [];
     for (const variant of requestVariants) {
       try {
@@ -338,19 +331,16 @@ class LinkedInOAuthAdapter extends BaseOAuthAdapter {
           method: "GET",
           url: variant.url,
           params: variant.params,
-          headers: this.redactHeaders(variant.headers),
+          headers: variant.headers,
           status: error?.response?.status || null,
           data: error?.response?.data || null,
         });
-        // Try next query variant.
       }
     }
-
     try {
       if (!elements.length) {
         return [];
       }
-
       const pages = [];
       const seenOrgIds = new Set<string>();
       const organizationCache = new Map<string, any>();
@@ -362,19 +352,16 @@ class LinkedInOAuthAdapter extends BaseOAuthAdapter {
         if (!this.isApprovedState(approvalState)) {
           continue;
         }
-
         const rawOrganization =
           element?.["organization~"] ||
           element?.["organizationalTarget~"] ||
           null;
-
         const rawOrgId =
           rawOrganization?.id ||
           element?.organization ||
           element?.organizationTarget ||
           element?.organizationalTarget ||
           "";
-
         const orgId = this.normalizeOrganizationId(rawOrgId);
         if (!orgId) {
           continue;
@@ -383,7 +370,6 @@ class LinkedInOAuthAdapter extends BaseOAuthAdapter {
           continue;
         }
         seenOrgIds.add(orgId);
-
         let org = rawOrganization;
         if (!org || (!org.localizedName && !org.vanityName)) {
           if (!organizationCache.has(orgId)) {
@@ -395,12 +381,10 @@ class LinkedInOAuthAdapter extends BaseOAuthAdapter {
           }
           org = organizationCache.get(orgId) || org;
         }
-
         const orgName =
           this.extractLocalizedName(org?.localizedName, "") ||
           org?.vanityName ||
           "LinkedIn Organization";
-
         pages.push({
           id: orgId,
           platformUserId: orgId,
@@ -416,7 +400,6 @@ class LinkedInOAuthAdapter extends BaseOAuthAdapter {
           },
         });
       }
-
       return pages;
     } catch (_error) {
       // Missing org scopes commonly returns 403; caller handles empty page list gracefully.
@@ -424,4 +407,5 @@ class LinkedInOAuthAdapter extends BaseOAuthAdapter {
     }
   }
 }
+
 export default LinkedInOAuthAdapter;

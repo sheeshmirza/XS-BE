@@ -1,10 +1,9 @@
-//Reviewed
+//Done
 
 import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(
   {
-    avatarUrl: { default: "", type: String },
     email: {
       index: true,
       lowercase: true,
@@ -14,21 +13,13 @@ const userSchema = new mongoose.Schema(
       unique: true,
     },
     emailVerificationExpiresAt: { default: undefined, type: Date },
-    emailVerificationToken: {
-      default: undefined,
-      index: true,
-      type: String,
-    },
+    emailVerificationToken: { default: undefined, type: Date },
     fullName: { default: "New User", index: true, trim: true, type: String },
-    isVerified: { default: false, type: Boolean },
-    lastLoginAt: { default: null, index: true, type: Date },
+    isVerified: { default: true, type: Boolean },
+    lastLoginAt: { default: null, type: Date },
     password: { required: true, type: String },
     resetPasswordExpiresAt: { default: undefined, type: Date },
-    resetPasswordToken: {
-      default: undefined,
-      index: true,
-      type: String,
-    },
+    resetPasswordToken: { default: undefined, type: Date },
     timezone: { default: "UTC", type: String },
   },
   { timestamps: true, versionKey: false },

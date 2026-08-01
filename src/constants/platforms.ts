@@ -1,8 +1,9 @@
+//Done
+
 export default {
-  LINKEDIN: "linkedin",
   FACEBOOK: "facebook",
   INSTAGRAM: "instagram",
+  LINKEDIN: "linkedin",
   X: "x",
-  TWITTER: "twitter",
   YOUTUBE: "youtube",
 };

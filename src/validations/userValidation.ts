@@ -1,6 +1,5 @@
 import Joi from 'joi';
 const updateMe = Joi.object({ body: Joi.object({ fullName: Joi.string().max(120).optional(),
-    avatarUrl: Joi.string().uri().optional(),
     timezone: Joi.string().max(60).optional() }).required(),
   params: Joi.object({}).required(),
   query: Joi.object({}).required() });

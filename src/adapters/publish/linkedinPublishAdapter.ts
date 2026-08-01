@@ -1,6 +1,7 @@
 import axios from "axios";
-import BasePublishAdapter from "./basePublishAdapter";
+
 import { isLinkedInOrganizationAccountType } from "../../constants/accountTypes";
+import BasePublishAdapter from "./basePublishAdapter";
 
 class LinkedInPublishAdapter extends BasePublishAdapter {
   async publish(post, handle) {
@@ -13,7 +14,6 @@ class LinkedInPublishAdapter extends BasePublishAdapter {
           raw: {},
         };
       }
-
       const accountType = handle?.metadata?.accountType;
       const isOrganization = isLinkedInOrganizationAccountType(accountType);
       const organizationUrn = handle?.metadata?.organizationUrn
@@ -21,7 +21,6 @@ class LinkedInPublishAdapter extends BasePublishAdapter {
         : `urn:li:organization:${handle.platformUserId}`;
       const personUrn = `urn:li:person:${handle.platformUserId}`;
       const authorUrn = isOrganization ? organizationUrn : personUrn;
-
       const payload = {
         author: authorUrn,
         lifecycleState: "PUBLISHED",

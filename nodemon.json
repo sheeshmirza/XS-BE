@@ -1,16 +1,18 @@
 {
-  "watch": ["src/**/*.ts"],
+  "watch": [
+    "src/**/*.ts"
+  ],
   "ext": "ts",
   "ignore": [
-    "dist/**",
-    "tests/**",
-    "coverage/**",
-    "node_modules/**",
     ".git/**",
+    "*.log",
+    "coverage/**",
+    "dist/**",
+    "node_modules/**",
     "src/**/*.d.ts",
     "src/**/*.js",
     "src/**/*.js.map",
-    "*.log"
+    "tests/**"
   ],
   "exec": "ts-node --transpile-only src/server.ts",
   "delay": "700",

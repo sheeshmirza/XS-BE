@@ -1,37 +1,13 @@
 import mongoose from "mongoose";
 import postRepository from "../repositories/postRepository";
-import socialService from "./socialService";
 import notificationService from "./notificationService";
 import postStatus from "../constants/postStatus";
 import notificationTypes from "../constants/notificationTypes";
 import ApiError from "../utils/ApiError";
 import httpStatus from "../constants/httpStatus";
-import { getPublishAdapter } from "../adapters/publish";
 import { addSchedulePublishJob } from "../queue/postQueue";
-import socialHandleRepository from "../repositories/socialHandleRepository";
 import aiService from "./aiService";
-
-const isRevokedLinkedInToken = (platform, result) => {
-  if (platform !== "linkedin" || result?.status !== "failed") {
-    return false;
-  }
-
-  const raw = result?.raw || {};
-  const message = String(result?.message || raw?.message || "").toLowerCase();
-  const code = String(raw?.code || "").toUpperCase();
-  const statusCode = Number(raw?.status);
-  const serviceErrorCode = Number(raw?.serviceErrorCode);
-
-  if (code === "REVOKED_ACCESS_TOKEN" || serviceErrorCode === 65601) {
-    return true;
-  }
-
-  return (
-    statusCode === 401 &&
-    message.includes("token") &&
-    message.includes("revoked")
-  );
-};
+import postPublishService from "./postPublish";
 class PostService {
   private normalizeGenerationType(value: any) {
     const normalized = String(value || "")
@@ -333,72 +309,12 @@ class PostService {
     const selectedAccountIds =
       accountIdList.length > 0 ? accountIdList : post.selectedAccountIds || [];
 
-    if (!selectedPlatforms.length && !selectedAccountIds.length) {
-      throw new ApiError(
-        httpStatus.BAD_REQUEST,
-        "No account or platform selected for publishing",
-      );
-    }
-
-    const handles = selectedAccountIds.length
-      ? await socialHandleRepository.findByUserAndIds(
-          userId,
-          selectedAccountIds,
-        )
-      : await socialService.listHandlesForPlatforms(userId, selectedPlatforms);
-
-    if (!handles.length) {
-      throw new ApiError(
-        httpStatus.BAD_REQUEST,
-        "No connected social handles available for selected accounts/platforms",
-      );
-    }
-    // Fan-out publish: one post can target multiple connected handles across platforms.
-    const responseItems = [];
-    for (const handle of handles) {
-      const adapter = getPublishAdapter(handle.platform);
-      if (!adapter) {
-        responseItems.push({
-          platform: handle.platform,
-          status: "failed",
-          message: "Publish adapter not available",
-          raw: {},
-        });
-        continue;
-      }
-      const result = await adapter.publish(post, handle);
-      let resultMessage = (result as any).message || "";
-
-      if (isRevokedLinkedInToken(handle.platform, result)) {
-        await socialHandleRepository.updateByIdAndUserId(handle._id, userId, {
-          isConnected: false,
-          platformAccessToken: "",
-          platformRefreshToken: "",
-          platformAccessTokenExpiry: null,
-        });
-
-        await notificationService.createNotification({
-          userId,
-          type: notificationTypes.TOKEN_EXPIRED,
-          title: "LinkedIn re-authentication required",
-          message:
-            "Your LinkedIn session was revoked. Reconnect LinkedIn from the Accounts page.",
-          metadata: { platform: handle.platform, socialHandleId: handle._id },
-        });
-
-        resultMessage =
-          "LinkedIn access was revoked. Reconnect LinkedIn from Accounts, then publish again.";
-      }
-
-      responseItems.push({
-        platform: handle.platform,
-        platformPostId: (result as any).platformPostId || "",
-        url: (result as any).url || "",
-        status: (result as any).status,
-        message: resultMessage,
-        raw: (result as any).raw || {},
-      });
-    }
+    const responseItems = await postPublishService.publishToPlatforms({
+      userId,
+      post,
+      selectedPlatforms,
+      selectedAccountIds,
+    });
     // A partial success still marks the post as published with per-platform response tracking.
     const successCount = responseItems.filter(
       (item) => item.status === "success",

@@ -1,68 +1,46 @@
+//Done
+
 import axios from "axios";
-import ApiError from "../../utils/ApiError";
+
 import httpStatus from "../../constants/httpStatus";
+import ApiError from "../../utils/ApiError";
 
 class BaseOAuthAdapter {
+
   config: any;
+  
   constructor(config) {
     this.config = config;
   }
 
-  shouldDebugOAuthLogs() {
-    return (
-      String(process.env.OAUTH_DEBUG_LOGS || "").toLowerCase() === "true" ||
-      process.env.NODE_ENV !== "production"
-    );
-  }
-
-  maskSecret(value) {
-    const text = String(value || "");
-    if (!text) {
-      return "";
-    }
-    if (text.length <= 10) {
-      return `${text.slice(0, 2)}***`;
-    }
-    return `${text.slice(0, 6)}...${text.slice(-4)}`;
-  }
-
-  redactHeaders(headers: Record<string, string> = {}) {
-    const sanitized = { ...headers };
-    if (sanitized.Authorization) {
-      sanitized.Authorization = this.maskSecret(sanitized.Authorization);
-    }
-    return sanitized;
-  }
-
   logOAuthDebug(event, payload) {
-    if (!this.shouldDebugOAuthLogs()) {
-      return;
-    }
     console.log(`[OAuthDebug] ${event}`, JSON.stringify(payload, null, 2));
   }
 
   buildAuthorizeUrl(_state, _scopes = []) {
-    throw new Error("buildAuthorizeUrl must be implemented");
+    throw new Error("BuildAuthorizeUrl must be implemented");
   }
+
   async exchangeCodeForToken(_code, _context?): Promise<any> {
-    throw new Error("exchangeCodeForToken must be implemented");
+    throw new Error("ExchangeCodeForToken must be implemented");
   }
+  
   async refreshToken(_refreshToken): Promise<any> {
-    throw new Error("refreshToken must be implemented");
+    throw new Error("RefreshToken must be implemented");
   }
+  
   async fetchUserProfile(_accessToken): Promise<any> {
-    throw new Error("fetchUserProfile must be implemented");
+    throw new Error("FetchUserProfile must be implemented");
   }
+  
   async get(url, token, params = {}) {
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
     this.logOAuthDebug("request", {
       method: "GET",
       url,
       params,
-      headers: this.redactHeaders(headers),
+      headers,
     });
-
     try {
       const response = await axios.get(url, {
         params,
@@ -82,7 +60,7 @@ class BaseOAuthAdapter {
           method: "GET",
           url,
           params,
-          headers: this.redactHeaders(headers),
+          headers,
           providerStatus,
           providerData: error.response?.data || null,
         });
@@ -99,14 +77,14 @@ class BaseOAuthAdapter {
       throw error;
     }
   }
+
   async post(url, body, headers = {}) {
     this.logOAuthDebug("request", {
       method: "POST",
       url,
-      headers: this.redactHeaders(headers),
+      headers,
       body,
     });
-
     try {
       const response = await axios.post(url, body, { headers });
       this.logOAuthDebug("response", {
@@ -122,7 +100,7 @@ class BaseOAuthAdapter {
         this.logOAuthDebug("error", {
           method: "POST",
           url,
-          headers: this.redactHeaders(headers),
+          headers,
           body,
           providerStatus,
           providerData: error.response?.data || null,
@@ -141,4 +119,5 @@ class BaseOAuthAdapter {
     }
   }
 }
+
 export default BaseOAuthAdapter;

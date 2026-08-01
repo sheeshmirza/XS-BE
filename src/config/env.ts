@@ -1,4 +1,4 @@
-//Reviewed
+//Done
 
 import dotenv from "dotenv";
 
@@ -54,17 +54,6 @@ export default {
       ),
       redirectUri: cleanEnvValue(
         process.env.X_REDIRECT_URI || process.env.TWITTER_REDIRECT_URI,
-      ),
-    },
-    twitter: {
-      clientId: cleanEnvValue(
-        process.env.TWITTER_CLIENT_ID || process.env.X_CLIENT_ID,
-      ),
-      clientSecret: cleanEnvValue(
-        process.env.TWITTER_CLIENT_SECRET || process.env.X_CLIENT_SECRET,
-      ),
-      redirectUri: cleanEnvValue(
-        process.env.TWITTER_REDIRECT_URI || process.env.X_REDIRECT_URI,
       ),
     },
     youtube: {
