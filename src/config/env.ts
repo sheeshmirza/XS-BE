@@ -19,6 +19,8 @@ const cleanEnvValue = (value?: string) => {
 };
 
 export default {
+  aiWrapperBaseUrl: cleanEnvValue(process.env.AI_WRAPPER_BASE_URL),
+  aiWrapperTimeoutMs: Number(process.env.AI_WRAPPER_TIMEOUT_MS || 30000),
   bcryptSaltRounds: Number(process.env.BCRYPT_SALT_ROUNDS),
   clientUrl: cleanEnvValue(process.env.CLIENT_URL),
   jwtAccessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN,
@@ -44,9 +46,31 @@ export default {
       redirectUri: cleanEnvValue(process.env.LINKEDIN_REDIRECT_URI),
     },
     x: {
-      clientId: cleanEnvValue(process.env.X_CLIENT_ID),
-      clientSecret: cleanEnvValue(process.env.X_CLIENT_SECRET),
-      redirectUri: cleanEnvValue(process.env.X_REDIRECT_URI),
+      clientId: cleanEnvValue(
+        process.env.X_CLIENT_ID || process.env.TWITTER_CLIENT_ID,
+      ),
+      clientSecret: cleanEnvValue(
+        process.env.X_CLIENT_SECRET || process.env.TWITTER_CLIENT_SECRET,
+      ),
+      redirectUri: cleanEnvValue(
+        process.env.X_REDIRECT_URI || process.env.TWITTER_REDIRECT_URI,
+      ),
+    },
+    twitter: {
+      clientId: cleanEnvValue(
+        process.env.TWITTER_CLIENT_ID || process.env.X_CLIENT_ID,
+      ),
+      clientSecret: cleanEnvValue(
+        process.env.TWITTER_CLIENT_SECRET || process.env.X_CLIENT_SECRET,
+      ),
+      redirectUri: cleanEnvValue(
+        process.env.TWITTER_REDIRECT_URI || process.env.X_REDIRECT_URI,
+      ),
+    },
+    youtube: {
+      clientId: cleanEnvValue(process.env.YOUTUBE_CLIENT_ID),
+      clientSecret: cleanEnvValue(process.env.YOUTUBE_CLIENT_SECRET),
+      redirectUri: cleanEnvValue(process.env.YOUTUBE_REDIRECT_URI),
     },
   },
   port: Number(process.env.PORT),

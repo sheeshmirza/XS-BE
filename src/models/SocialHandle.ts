@@ -5,7 +5,7 @@ const socialHandleSchema = new mongoose.Schema(
     isConnected: { default: true, index: true, type: Boolean },
     metadata: { default: {}, type: mongoose.Schema.Types.Mixed },
     platform: {
-      enum: ["facebook", "instagram", "linkedin", "x"],
+      enum: ["facebook", "instagram", "linkedin", "x", "twitter", "youtube"],
       index: true,
       required: true,
       type: String,

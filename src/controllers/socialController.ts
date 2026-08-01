@@ -49,6 +49,7 @@ const oauthCallback = asyncHandler(async (req, res) => {
     userId,
     req.params.platform,
     req.query.code,
+    req.query.state,
   );
   return sendSuccess(
     res,

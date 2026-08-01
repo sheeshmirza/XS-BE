@@ -3,7 +3,7 @@ const platformResponseSchema = new mongoose.Schema(
   {
     platform: {
       type: String,
-      enum: ["linkedin", "instagram", "facebook", "x"],
+      enum: ["linkedin", "instagram", "facebook", "x", "twitter", "youtube"],
       required: true,
     },
     platformPostId: { type: String, default: "" },
@@ -32,7 +32,7 @@ const postSchema = new mongoose.Schema(
       index: true,
     },
     title: { type: String, trim: true, default: "" },
-    caption: { type: String, required: true },
+    caption: { type: String, default: "" },
     hashtags: { type: [String], default: [] },
     mentions: { type: [String], default: [] },
     media: { type: [mediaSchema], default: [] },
@@ -64,7 +64,7 @@ const postSchema = new mongoose.Schema(
     },
     selectedPlatforms: {
       type: [String],
-      enum: ["linkedin", "instagram", "facebook", "x"],
+      enum: ["linkedin", "instagram", "facebook", "x", "twitter", "youtube"],
       default: [],
     },
     selectedAccountIds: { type: [String], default: [] },

@@ -1,5 +1,12 @@
 import Joi from "joi";
-const platforms = ["linkedin", "instagram", "facebook", "x"];
+const platforms = [
+  "linkedin",
+  "instagram",
+  "facebook",
+  "x",
+  "twitter",
+  "youtube",
+];
 const recurrenceValues = [
   "once",
   "hourly",
@@ -17,7 +24,7 @@ const mediaSchema = Joi.object({
 const createPost = Joi.object({
   body: Joi.object({
     title: Joi.string().max(140).allow("").optional(),
-    caption: Joi.string().required(),
+    caption: Joi.string().allow("").optional(),
     hashtags: Joi.array().items(Joi.string()).optional(),
     mentions: Joi.array().items(Joi.string()).optional(),
     media: Joi.array().items(mediaSchema).optional(),
@@ -35,6 +42,27 @@ const createPost = Joi.object({
       .valid(...recurrenceValues)
       .optional(),
     status: Joi.string().valid("draft", "scheduled").optional(),
+    ai: Joi.object({
+      enabled: Joi.boolean().optional(),
+      generationType: Joi.string().valid("text", "image", "both").optional(),
+      provider: Joi.string().trim().allow("").optional(),
+      model: Joi.string().trim().allow("").optional(),
+      prompt: Joi.string().trim().allow("").optional(),
+      textProvider: Joi.string().trim().allow("").optional(),
+      textModel: Joi.string().trim().allow("").optional(),
+      textPrompt: Joi.string().trim().allow("").optional(),
+      systemPrompt: Joi.string().allow("").optional(),
+      maxTokens: Joi.number().integer().min(1).max(8192).optional(),
+      temperature: Joi.number().min(0).max(2).optional(),
+      generateImage: Joi.boolean().optional(),
+      imageProvider: Joi.string().trim().allow("").optional(),
+      imageModel: Joi.string().trim().allow("").optional(),
+      imagePrompt: Joi.string().trim().allow("").optional(),
+      imageSize: Joi.string().trim().allow("").optional(),
+      imageCount: Joi.number().integer().min(1).max(4).optional(),
+      imageQuality: Joi.string().trim().allow("").optional(),
+      imageFormat: Joi.string().trim().allow("").optional(),
+    }).optional(),
   }).required(),
   params: Joi.object({}).required(),
   query: Joi.object({}).required(),

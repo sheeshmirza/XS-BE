@@ -44,7 +44,7 @@ class BaseOAuthAdapter {
   buildAuthorizeUrl(_state, _scopes = []) {
     throw new Error("buildAuthorizeUrl must be implemented");
   }
-  async exchangeCodeForToken(_code): Promise<any> {
+  async exchangeCodeForToken(_code, _context?): Promise<any> {
     throw new Error("exchangeCodeForToken must be implemented");
   }
   async refreshToken(_refreshToken): Promise<any> {

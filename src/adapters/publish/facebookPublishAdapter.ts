@@ -4,7 +4,7 @@ class FacebookPublishAdapter extends BasePublishAdapter { async publish(post, ha
         `https://graph.facebook.com/${handle.platformUserId}/feed`,
         null,
         { params: { message: post.caption,
-            access_token: handle.accessToken } }
+            access_token: handle.platformAccessToken } }
       );
       return { status: 'success',
         platformPostId: data.id || '',

@@ -16,11 +16,17 @@ export enum XAccountType {
   USER = "user",
 }
 
+export enum YouTubeAccountType {
+  CHANNEL = "channel",
+}
+
 export const normalizedProfileAccountTypeByPlatform = {
   facebook: FacebookAccountType.PAGE,
   instagram: InstagramAccountType.CREATOR,
   linkedin: LinkedInAccountType.PERSON,
   x: XAccountType.USER,
+  twitter: XAccountType.USER,
+  youtube: YouTubeAccountType.CHANNEL,
 } as const;
 
 export const isLinkedInOrganizationAccountType = (accountType?: string) => {
@@ -46,8 +52,11 @@ export const normalizeAccountTypeByPlatform = (
       ? LinkedInAccountType.ORGANIZATION
       : LinkedInAccountType.PERSON;
   }
-  if (normalizedPlatform === "x") {
+  if (normalizedPlatform === "x" || normalizedPlatform === "twitter") {
     return XAccountType.USER;
+  }
+  if (normalizedPlatform === "youtube") {
+    return YouTubeAccountType.CHANNEL;
   }
   return normalizedType;
 };

@@ -16,13 +16,14 @@ class XOAuthAdapter extends BaseOAuthAdapter {
     });
     return `https://twitter.com/i/oauth2/authorize?${query}`;
   }
-  async exchangeCodeForToken(code) {
+  async exchangeCodeForToken(code, state) {
+    const verifier = state || code;
     const body = qs.stringify({
       grant_type: "authorization_code",
       code,
       redirect_uri: this.config.redirectUri,
       client_id: this.config.clientId,
-      code_verifier: code,
+      code_verifier: verifier,
     });
     const basic = Buffer.from(
       `${this.config.clientId}:${this.config.clientSecret}`,

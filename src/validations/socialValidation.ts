@@ -1,6 +1,13 @@
 import Joi from "joi";
 
-const validPlatforms = ["facebook", "instagram", "linkedin", "x"];
+const validPlatforms = [
+  "facebook",
+  "instagram",
+  "linkedin",
+  "x",
+  "twitter",
+  "youtube",
+];
 
 const connect = Joi.object({
   body: Joi.object({}).required(),

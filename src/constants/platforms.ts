@@ -3,4 +3,6 @@ export default {
   FACEBOOK: "facebook",
   INSTAGRAM: "instagram",
   X: "x",
+  TWITTER: "twitter",
+  YOUTUBE: "youtube",
 };

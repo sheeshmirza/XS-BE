@@ -12,7 +12,42 @@ import {
 } from "../constants/accountTypes";
 const allowedPlatforms = Object.values(platforms);
 
+type SocialServiceDeps = {
+  socialHandleRepo: any;
+  notifications: any;
+  oauthAdapterResolver: (platform: string) => any;
+};
+
 class SocialService {
+  private readonly socialHandleRepo: any;
+
+  private readonly notifications: any;
+
+  private readonly oauthAdapterResolver: (platform: string) => any;
+
+  constructor(deps: SocialServiceDeps) {
+    this.socialHandleRepo = deps.socialHandleRepo;
+    this.notifications = deps.notifications;
+    this.oauthAdapterResolver = deps.oauthAdapterResolver;
+  }
+
+  private assertSupportedPlatform(platform: string) {
+    if (!allowedPlatforms.includes(platform)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, "Unsupported platform");
+    }
+  }
+
+  private resolveOAuthAdapter(platform: string) {
+    const adapter = this.oauthAdapterResolver(platform);
+    if (!adapter) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "OAuth adapter not found for platform",
+      );
+    }
+    return adapter;
+  }
+
   private getTokenExpiryDate(expiresIn: number) {
     return new Date(Date.now() + Number(expiresIn || 3600) * 1000);
   }
@@ -83,7 +118,7 @@ class SocialService {
         continue;
       }
 
-      await socialHandleRepository.upsertByUserPlatformIdentity(
+      await this.socialHandleRepo.upsertByUserPlatformIdentity(
         userId,
         platform,
         pageIdentity,
@@ -116,7 +151,7 @@ class SocialService {
   }
 
   private async updateLinkedInSyncMetadata(userId, handle, changes = {}) {
-    await socialHandleRepository.updateByIdAndUserId(handle._id, userId, {
+    await this.socialHandleRepo.updateByIdAndUserId(handle._id, userId, {
       metadata: {
         ...(handle.metadata || {}),
         accountType: LinkedInAccountType.PERSON,
@@ -131,7 +166,7 @@ class SocialService {
     const allAccounts: any[] = [];
 
     while (true) {
-      const batch: any[] = await socialHandleRepository.listByUserId(
+      const batch: any[] = await this.socialHandleRepo.listByUserId(
         userId,
         {
           platform: platforms.LINKEDIN,
@@ -163,7 +198,7 @@ class SocialService {
       return;
     }
 
-    const adapter: any = getOAuthAdapter(platforms.LINKEDIN);
+    const adapter: any = this.oauthAdapterResolver(platforms.LINKEDIN);
     if (!adapter || typeof adapter.fetchManagedPages !== "function") {
       return;
     }
@@ -220,40 +255,80 @@ class SocialService {
     if (typeof filters.isConnected === "boolean")
       dbFilters.isConnected = filters.isConnected;
     const [items, total] = await Promise.all([
-      socialHandleRepository.listByUserId(userId, dbFilters, options),
-      socialHandleRepository.countByUserId(userId, dbFilters),
+      this.socialHandleRepo.listByUserId(userId, dbFilters, options),
+      this.socialHandleRepo.countByUserId(userId, dbFilters),
     ]);
     return { items, total };
   }
+
+  private buildScopes(scopeValue: string) {
+    return String(scopeValue || "")
+      .split(/[ ,]/)
+      .filter(Boolean);
+  }
+
+  private async createConnectedNotification(userId, platform, socialHandleId) {
+    await this.notifications.createNotification({
+      userId,
+      type: notificationTypes.SOCIAL_CONNECTED,
+      title: "Social account connected",
+      message: `${platform} account connected successfully`,
+      metadata: { socialHandleId, platform },
+    });
+  }
+
+  private async upsertPrimarySocialHandle({
+    userId,
+    platform,
+    profilePlatformUserId,
+    profile,
+    accessToken,
+    refreshToken,
+    accessTokenExpiry,
+    scopes,
+  }) {
+    return this.socialHandleRepo.upsertByUserPlatformIdentity(
+      userId,
+      platform,
+      profilePlatformUserId,
+      this.buildSocialHandlePayload({
+        userId,
+        platform,
+        platformUserId: profilePlatformUserId,
+        username: profile.username,
+        userDisplayName: profile.displayName,
+        userProfilePicture: profile.profilePicture,
+        accessToken,
+        refreshToken,
+        accessTokenExpiry,
+        scopes,
+        metadata: {
+          ...(profile.metadata || {}),
+          accountType: normalizeAccountTypeByPlatform(
+            platform,
+            profile?.accountType,
+          ),
+        },
+      }),
+    );
+  }
+
   getConnectUrl(userId, platform) {
-    if (!allowedPlatforms.includes(platform)) {
-      throw new ApiError(httpStatus.BAD_REQUEST, "Unsupported platform");
-    }
-    const adapter = getOAuthAdapter(platform);
-    if (!adapter) {
-      throw new ApiError(
-        httpStatus.BAD_REQUEST,
-        "OAuth adapter not found for platform",
-      );
-    }
+    this.assertSupportedPlatform(platform);
+    const adapter = this.resolveOAuthAdapter(platform);
     // State links callback context to requesting user. In production, use signed+stored state.
     const state = `${userId}:${Date.now()}`;
     return adapter.buildAuthorizeUrl(state);
   }
-  async connectFromCallback(userId, platform, code) {
-    const adapter = getOAuthAdapter(platform);
-    if (!adapter) {
-      throw new ApiError(
-        httpStatus.BAD_REQUEST,
-        "OAuth adapter not found for platform",
-      );
-    }
-    const tokenResult = await adapter.exchangeCodeForToken(code);
+  async connectFromCallback(userId, platform, code, state) {
+    this.assertSupportedPlatform(platform);
+    const adapter = this.resolveOAuthAdapter(platform);
+    const tokenResult = await adapter.exchangeCodeForToken(code, state);
     const accessToken = tokenResult.access_token;
     const refreshToken = tokenResult.refresh_token || "";
     const expiresIn = tokenResult.expires_in || 3600;
     const accessTokenExpiry = this.getTokenExpiryDate(expiresIn);
-    const scopes = (tokenResult.scope || "").split(/[ ,]/).filter(Boolean);
+    const scopes = this.buildScopes(tokenResult.scope);
     if (!accessToken) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
@@ -272,30 +347,16 @@ class SocialService {
 
     let socialHandle;
     try {
-      socialHandle = await socialHandleRepository.upsertByUserPlatformIdentity(
+      socialHandle = await this.upsertPrimarySocialHandle({
         userId,
         platform,
         profilePlatformUserId,
-        this.buildSocialHandlePayload({
-          userId,
-          platform,
-          platformUserId: profilePlatformUserId,
-          username: profile.username,
-          userDisplayName: profile.displayName,
-          userProfilePicture: profile.profilePicture,
-          accessToken,
-          refreshToken,
-          accessTokenExpiry,
-          scopes,
-          metadata: {
-            ...(profile.metadata || {}),
-            accountType: normalizeAccountTypeByPlatform(
-              platform,
-              profile?.accountType,
-            ),
-          },
-        }),
-      );
+        profile,
+        accessToken,
+        refreshToken,
+        accessTokenExpiry,
+        scopes,
+      });
 
       let linkedPageCount = 0;
       if (typeof (adapter as any)?.fetchManagedPages === "function") {
@@ -343,17 +404,11 @@ class SocialService {
       }
       throw error;
     }
-    await notificationService.createNotification({
-      userId,
-      type: notificationTypes.SOCIAL_CONNECTED,
-      title: "Social account connected",
-      message: `${platform} account connected successfully`,
-      metadata: { socialHandleId: socialHandle._id, platform },
-    });
+    await this.createConnectedNotification(userId, platform, socialHandle._id);
     return socialHandle;
   }
   async disconnectAccount(userId, socialId) {
-    const deleted = await socialHandleRepository.deleteByIdAndUserId(
+    const deleted = await this.socialHandleRepo.deleteByIdAndUserId(
       socialId,
       userId,
     );
@@ -363,20 +418,14 @@ class SocialService {
     return deleted;
   }
   async refreshPlatformToken(userId, socialId) {
-    const social: any = await socialHandleRepository.findByIdAndUserId(
+    const social: any = await this.socialHandleRepo.findByIdAndUserId(
       socialId,
       userId,
     );
     if (!social) {
       throw new ApiError(httpStatus.NOT_FOUND, "Social account not found");
     }
-    const adapter = getOAuthAdapter(social.platform);
-    if (!adapter) {
-      throw new ApiError(
-        httpStatus.BAD_REQUEST,
-        "OAuth adapter not found for platform",
-      );
-    }
+    const adapter = this.resolveOAuthAdapter(social.platform);
     if (!social.platformRefreshToken) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
@@ -385,10 +434,10 @@ class SocialService {
     }
     const refreshed = await adapter.refreshToken(social.platformRefreshToken);
     if (!refreshed || !refreshed.access_token) {
-      await socialHandleRepository.updateByIdAndUserId(social._id, userId, {
+      await this.socialHandleRepo.updateByIdAndUserId(social._id, userId, {
         isConnected: false,
       });
-      await notificationService.createNotification({
+      await this.notifications.createNotification({
         userId,
         type: notificationTypes.TOKEN_EXPIRED,
         title: "Token expired",
@@ -400,7 +449,7 @@ class SocialService {
         "Failed to refresh social token",
       );
     }
-    return socialHandleRepository.updateByIdAndUserId(social._id, userId, {
+    return this.socialHandleRepo.updateByIdAndUserId(social._id, userId, {
       platformAccessToken: refreshed.access_token,
       platformRefreshToken:
         refreshed.refresh_token || social.platformRefreshToken,
@@ -411,10 +460,18 @@ class SocialService {
     });
   }
   listHandlesForPlatforms(userId, platformList) {
-    return socialHandleRepository.findByUserPlatforms(userId, platformList);
+    return this.socialHandleRepo.findByUserPlatforms(userId, platformList);
   }
   countConnected(userId) {
-    return socialHandleRepository.countByUserId(userId, { isConnected: true });
+    return this.socialHandleRepo.countByUserId(userId, { isConnected: true });
   }
 }
-export default new SocialService();
+
+const socialService = new SocialService({
+  socialHandleRepo: socialHandleRepository,
+  notifications: notificationService,
+  oauthAdapterResolver: getOAuthAdapter,
+});
+
+export { SocialService };
+export default socialService;

@@ -9,6 +9,7 @@ import httpStatus from "../constants/httpStatus";
 import { getPublishAdapter } from "../adapters/publish";
 import { addSchedulePublishJob } from "../queue/postQueue";
 import socialHandleRepository from "../repositories/socialHandleRepository";
+import aiService from "./aiService";
 
 const isRevokedLinkedInToken = (platform, result) => {
   if (platform !== "linkedin" || result?.status !== "failed") {
@@ -32,6 +33,148 @@ const isRevokedLinkedInToken = (platform, result) => {
   );
 };
 class PostService {
+  private normalizeGenerationType(value: any) {
+    const normalized = String(value || "")
+      .trim()
+      .toLowerCase();
+    if (["text", "image", "both"].includes(normalized)) {
+      return normalized;
+    }
+    return "text";
+  }
+
+  private async resolveAiGeneratedContent(payload: any) {
+    const ai = payload?.ai;
+    if (!ai?.enabled) {
+      return payload;
+    }
+
+    let generationType = this.normalizeGenerationType(ai.generationType);
+    if (!ai.generationType) {
+      const hasTextSignal = Boolean(ai.textPrompt || ai.prompt);
+      const hasImageSignal = Boolean(ai.generateImage || ai.imagePrompt);
+      if (hasTextSignal && hasImageSignal) {
+        generationType = "both";
+      } else if (hasImageSignal) {
+        generationType = "image";
+      } else {
+        generationType = "text";
+      }
+    }
+    const shouldGenerateText =
+      generationType === "text" || generationType === "both";
+    const shouldGenerateImage =
+      generationType === "image" ||
+      generationType === "both" ||
+      ai.generateImage === true;
+
+    const textProvider = String(ai.textProvider || ai.provider || "").trim();
+    const textModel = String(ai.textModel || ai.model || "").trim();
+    const textPrompt = String(ai.textPrompt || ai.prompt || "").trim();
+
+    let generatedCaption = "";
+    if (shouldGenerateText) {
+      if (!textProvider || !textModel || !textPrompt) {
+        throw new ApiError(
+          httpStatus.BAD_REQUEST,
+          "AI text generation requires provider, model, and text prompt",
+        );
+      }
+
+      const textResponse: any = await aiService.generateText({
+        provider: textProvider,
+        model: textModel,
+        prompt: textPrompt,
+        system_prompt: ai.systemPrompt,
+        max_tokens: ai.maxTokens,
+        temperature: ai.temperature,
+        stream: false,
+      });
+
+      generatedCaption = String(textResponse?.text || "").trim();
+      if (!generatedCaption && !String(payload.caption || "").trim()) {
+        throw new ApiError(
+          httpStatus.BAD_GATEWAY,
+          "AI text generation returned empty text",
+        );
+      }
+    }
+
+    const mergedMedia = Array.isArray(payload.media) ? [...payload.media] : [];
+    const initialMediaCount = mergedMedia.length;
+
+    if (shouldGenerateImage) {
+      const imageProvider = String(
+        ai.imageProvider || textProvider || ai.provider || "",
+      ).trim();
+      const imageModel = String(ai.imageModel || "").trim();
+      const imagePrompt = String(ai.imagePrompt || textPrompt || ai.prompt || "").trim();
+
+      if (!imageProvider || !imageModel || !imagePrompt) {
+        throw new ApiError(
+          httpStatus.BAD_REQUEST,
+          "AI image generation requires image provider, image model, and image prompt",
+        );
+      }
+
+      const imageResponse: any = await aiService.generateImage({
+        provider: imageProvider,
+        model: imageModel,
+        prompt: imagePrompt,
+        size: ai.imageSize,
+        count: ai.imageCount,
+        quality: ai.imageQuality,
+        format: ai.imageFormat,
+      });
+
+      const generatedImages = Array.isArray(imageResponse?.images)
+        ? imageResponse.images
+        : [];
+
+      for (const image of generatedImages) {
+        if (image?.url) {
+          mergedMedia.push({
+            type: "image",
+            url: image.url,
+            mimeType: image.mime_type || image.mimeType || "",
+            size: 0,
+          });
+        }
+      }
+
+      if (mergedMedia.length === initialMediaCount) {
+        throw new ApiError(
+          httpStatus.BAD_GATEWAY,
+          "AI image generation did not return image URLs",
+        );
+      }
+    }
+
+    const finalCaption = String(payload.caption || "").trim() || generatedCaption;
+    const hasMedia = mergedMedia.length > 0;
+
+    if (!finalCaption && !hasMedia) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Provide caption or enable AI generation for text/image content",
+      );
+    }
+
+    const inferredPostType =
+      hasMedia && finalCaption
+        ? "mixed"
+        : hasMedia
+          ? "image"
+          : "text";
+
+    return {
+      ...payload,
+      caption: finalCaption,
+      media: mergedMedia,
+      postType: payload.postType || inferredPostType,
+    };
+  }
+
   private getRecurrenceValue(value: string) {
     const allowed = new Set([
       "once",
@@ -105,22 +248,34 @@ class PostService {
     return resolved;
   }
 
-  createPost(userId, payload) {
+  async createPost(userId, payload) {
+    const resolvedPayload = await this.resolveAiGeneratedContent(payload);
+
+    if (
+      !String(resolvedPayload.caption || "").trim() &&
+      !(Array.isArray(resolvedPayload.media) && resolvedPayload.media.length)
+    ) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "caption or media is required",
+      );
+    }
+
     return postRepository.create({
       userId,
-      title: payload.title,
-      caption: payload.caption,
-      hashtags: payload.hashtags || [],
-      mentions: payload.mentions || [],
-      media: payload.media || [],
-      postType: payload.postType,
-      visibility: payload.visibility,
-      timezone: payload.timezone || "UTC",
-      scheduledTime: payload.scheduledTime || null,
-      recurrence: this.getRecurrenceValue(payload.recurrence),
-      status: payload.status || postStatus.DRAFT,
-      selectedPlatforms: payload.selectedPlatforms || [],
-      selectedAccountIds: payload.selectedAccountIds || [],
+      title: resolvedPayload.title,
+      caption: resolvedPayload.caption,
+      hashtags: resolvedPayload.hashtags || [],
+      mentions: resolvedPayload.mentions || [],
+      media: resolvedPayload.media || [],
+      postType: resolvedPayload.postType,
+      visibility: resolvedPayload.visibility,
+      timezone: resolvedPayload.timezone || "UTC",
+      scheduledTime: resolvedPayload.scheduledTime || null,
+      recurrence: this.getRecurrenceValue(resolvedPayload.recurrence),
+      status: resolvedPayload.status || postStatus.DRAFT,
+      selectedPlatforms: resolvedPayload.selectedPlatforms || [],
+      selectedAccountIds: resolvedPayload.selectedAccountIds || [],
     });
   }
   async listPosts(userId, query, options) {

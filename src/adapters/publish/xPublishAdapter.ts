@@ -3,7 +3,7 @@ import BasePublishAdapter from './basePublishAdapter';
 class XPublishAdapter extends BasePublishAdapter { async publish(post, handle) { try { const { data } = await axios.post(
         'https://api.twitter.com/2/tweets',
         { text: post.caption },
-        { headers: { Authorization: `Bearer ${handle.accessToken}` } }
+  { headers: { Authorization: `Bearer ${handle.platformAccessToken}` } }
       );
       return { status: 'success',
         platformPostId: data.data?.id || '',
