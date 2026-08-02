@@ -54,6 +54,19 @@ interface AddSchedulePublishJobParams {
   runAt: Date | string;
 }
 
+const getScheduledPostJobId = (postId: string) => `publish-post:${postId}`;
+
+const removeSchedulePublishJob = async (postId: string): Promise<void> => {
+  if (!postQueue) {
+    return;
+  }
+  const jobId = getScheduledPostJobId(postId);
+  const existingJob = await postQueue.getJob(jobId);
+  if (existingJob) {
+    await existingJob.remove();
+  }
+};
+
 const addSchedulePublishJob = async ({
   postId,
   runAt,
@@ -67,11 +80,14 @@ const addSchedulePublishJob = async ({
   if (Number.isNaN(timestamp)) {
     throw new Error("Invalid runAt date");
   }
+  await removeSchedulePublishJob(postId);
+  const jobId = getScheduledPostJobId(postId);
   const delay = Math.max(0, timestamp - Date.now());
   await postQueue.add(
     "publish-post",
     { postId },
     {
+      jobId,
       delay,
       removeOnComplete: true,
       removeOnFail: 1000,
@@ -79,4 +95,4 @@ const addSchedulePublishJob = async ({
   );
 };
 
-export { initializePostQueue, addSchedulePublishJob };
+export { initializePostQueue, addSchedulePublishJob, removeSchedulePublishJob };

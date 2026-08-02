@@ -5,7 +5,10 @@ import postStatus from "../constants/postStatus";
 import notificationTypes from "../constants/notificationTypes";
 import ApiError from "../utils/ApiError";
 import httpStatus from "../constants/httpStatus";
-import { addSchedulePublishJob } from "../queue/postQueue";
+import {
+  addSchedulePublishJob,
+  removeSchedulePublishJob,
+} from "../queue/postQueue";
 import aiService from "./aiService";
 import postPublishService from "./postPublish";
 class PostService {
@@ -84,7 +87,9 @@ class PostService {
         ai.imageProvider || textProvider || ai.provider || "",
       ).trim();
       const imageModel = String(ai.imageModel || "").trim();
-      const imagePrompt = String(ai.imagePrompt || textPrompt || ai.prompt || "").trim();
+      const imagePrompt = String(
+        ai.imagePrompt || textPrompt || ai.prompt || "",
+      ).trim();
 
       if (!imageProvider || !imageModel || !imagePrompt) {
         throw new ApiError(
@@ -126,7 +131,8 @@ class PostService {
       }
     }
 
-    const finalCaption = String(payload.caption || "").trim() || generatedCaption;
+    const finalCaption =
+      String(payload.caption || "").trim() || generatedCaption;
     const hasMedia = mergedMedia.length > 0;
 
     if (!finalCaption && !hasMedia) {
@@ -137,11 +143,7 @@ class PostService {
     }
 
     const inferredPostType =
-      hasMedia && finalCaption
-        ? "mixed"
-        : hasMedia
-          ? "image"
-          : "text";
+      hasMedia && finalCaption ? "mixed" : hasMedia ? "image" : "text";
 
     return {
       ...payload,
@@ -190,11 +192,64 @@ class PostService {
     return next;
   }
 
+  private resolveDateTimeInTimezone(
+    date: string,
+    time: string,
+    timezone: string,
+  ): Date {
+    const match = time.match(/^(\d{2}):(\d{2})(?::(\d{2}))?$/);
+    if (!match) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Invalid time format. Expected HH:mm or HH:mm:ss",
+      );
+    }
+    const [yearStr, monthStr, dayStr] = date.split("-");
+    const year = Number(yearStr);
+    const month = Number(monthStr);
+    const day = Number(dayStr);
+    const hour = Number(match[1]);
+    const minute = Number(match[2]);
+    const second = Number(match[3] || "0");
+    const desiredLocalMs = Date.UTC(year, month - 1, day, hour, minute, second);
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
+    const resolveOffsetMs = (utcMs: number) => {
+      const parts = formatter.formatToParts(new Date(utcMs));
+      const map = Object.fromEntries(
+        parts.map((part) => [part.type, part.value]),
+      );
+      const zonedAsUtcMs = Date.UTC(
+        Number(map.year),
+        Number(map.month) - 1,
+        Number(map.day),
+        Number(map.hour),
+        Number(map.minute),
+        Number(map.second),
+      );
+      return zonedAsUtcMs - utcMs;
+    };
+    const firstGuessMs = desiredLocalMs;
+    const firstOffsetMs = resolveOffsetMs(firstGuessMs);
+    const secondGuessMs = desiredLocalMs - firstOffsetMs;
+    const secondOffsetMs = resolveOffsetMs(secondGuessMs);
+    const finalUtcMs = desiredLocalMs - secondOffsetMs;
+    return new Date(finalUtcMs);
+  }
+
   private resolveScheduledDateTime(scheduleInput: any) {
     const scheduledTime = scheduleInput?.scheduledTime;
     const date = String(scheduleInput?.date || "").trim();
     const time = String(scheduleInput?.time || "").trim();
-
+    const timezone = String(scheduleInput?.timezone || "UTC").trim();
     if (scheduledTime) {
       const resolved = new Date(scheduledTime);
       if (Number.isNaN(resolved.getTime())) {
@@ -205,15 +260,24 @@ class PostService {
       }
       return resolved;
     }
-
     if (!date || !time) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
         "Provide scheduledTime or both date and time",
       );
     }
-
-    const resolved = new Date(`${date}T${time}`);
+    let resolved: Date;
+    try {
+      resolved = this.resolveDateTimeInTimezone(date, time, timezone);
+    } catch (error: any) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Invalid timezone value for scheduling",
+      );
+    }
     if (Number.isNaN(resolved.getTime())) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
@@ -288,7 +352,9 @@ class PostService {
     }
     return updated;
   }
+
   async deletePost(userId, postId) {
+    await removeSchedulePublishJob(postId);
     const deleted = await postRepository.deleteByIdAndUserId(postId, userId);
     if (!deleted) {
       throw new ApiError(httpStatus.NOT_FOUND, "Post not found");
