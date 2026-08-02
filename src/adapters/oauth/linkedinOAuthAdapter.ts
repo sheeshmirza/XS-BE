@@ -24,9 +24,6 @@ const LINKEDIN_OAUTH_SCOPES = [
 
 class LinkedInOAuthAdapter extends BaseOAuthAdapter {
   logLinkedInDebug(event, payload) {
-    if (!this.shouldDebugOAuthLogs()) {
-      return;
-    }
     console.log(
       `[LinkedInOAuthDebug] ${event}`,
       JSON.stringify(payload, null, 2),
