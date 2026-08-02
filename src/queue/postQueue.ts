@@ -54,7 +54,7 @@ interface AddSchedulePublishJobParams {
   runAt: Date | string;
 }
 
-const getScheduledPostJobId = (postId: string) => `publish-post:${postId}`;
+const getScheduledPostJobId = (postId: string) => `publish-post-${postId}`;
 
 const removeSchedulePublishJob = async (postId: string): Promise<void> => {
   if (!postQueue) {
