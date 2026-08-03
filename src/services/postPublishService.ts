@@ -4,6 +4,7 @@ import httpStatus from "../constants/httpStatus";
 type PostPublishServiceDeps = {
   getHandlesByAccountIds: (userId: string, accountIds: string[]) => Promise<any[]>;
   getHandlesByPlatforms: (userId: string, platforms: string[]) => Promise<any[]>;
+  ensureFreshHandle: (userId: string, handle: any) => Promise<any>;
   getPlatformService: (platform: string) => any;
 };
 
@@ -18,11 +19,17 @@ class PostPublishService {
     platforms: string[],
   ) => Promise<any[]>;
 
+  private readonly ensureFreshHandle: (
+    userId: string,
+    handle: any,
+  ) => Promise<any>;
+
   private readonly getPlatformService: (platform: string) => any;
 
   constructor(deps: PostPublishServiceDeps) {
     this.getHandlesByAccountIds = deps.getHandlesByAccountIds;
     this.getHandlesByPlatforms = deps.getHandlesByPlatforms;
+    this.ensureFreshHandle = deps.ensureFreshHandle;
     this.getPlatformService = deps.getPlatformService;
   }
 
@@ -71,11 +78,12 @@ class PostPublishService {
 
     const responseItems = [];
     for (const handle of handles) {
-      const platformService = this.getPlatformService(handle.platform);
+      const freshHandle = await this.ensureFreshHandle(userId, handle);
+      const platformService = this.getPlatformService(freshHandle.platform);
 
-      const result = await platformService.publish(post, handle, {
+      const result = await platformService.publish(post, freshHandle, {
         userId,
-        handle,
+        handle: freshHandle,
       });
 
       responseItems.push(result);

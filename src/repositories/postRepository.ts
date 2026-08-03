@@ -2,6 +2,13 @@ import Post from '../models/Post';
 class PostRepository { create(payload) { return Post.create(payload); }
   findById(id) { return Post.findById(id); }
   findByIdAndUserId(id, userId) { return Post.findOne({ _id: id, userId }); }
+  listRecurringScheduledPosts() {
+    return Post.find({
+      status: 'scheduled',
+      recurrence: { $ne: 'once' },
+      scheduledTime: { $ne: null },
+    }).select({ _id: 1, scheduledTime: 1 });
+  }
   listByUserId(userId, filters: any = {}, options: any = {}) { const query = { userId, ...filters };
     const sort = options.sort || { createdAt: -1 };
     const skip = options.skip || 0;

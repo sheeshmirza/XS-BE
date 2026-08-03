@@ -2,6 +2,13 @@ import qs from "querystring";
 import BaseOAuthAdapter from "./baseOAuthAdapter";
 
 class InstagramOAuthAdapter extends BaseOAuthAdapter {
+  private normalizeAccessToken(token) {
+    return String(token || "")
+      .trim()
+      .replace(/^['"`]+|['"`]+$/g, "")
+      .replace(/\s+/g, "");
+  }
+
   buildAuthorizeUrl(
     state,
     scopes = [
@@ -38,13 +45,15 @@ class InstagramOAuthAdapter extends BaseOAuthAdapter {
     });
   }
   async refreshToken(refreshToken) {
+    const token = this.normalizeAccessToken(refreshToken);
     return this.get("https://graph.instagram.com/refresh_access_token", "", {
       grant_type: "ig_refresh_token",
-      access_token: refreshToken,
+      access_token: token,
     });
   }
   async fetchUserProfile(accessToken) {
-    const data = await this.get("https://graph.instagram.com/me", accessToken, {
+    const token = this.normalizeAccessToken(accessToken);
+    const data = await this.get("https://graph.instagram.com/me", token, {
       fields: "id,username",
     });
     return {

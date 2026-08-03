@@ -54,16 +54,24 @@ interface AddSchedulePublishJobParams {
   runAt: Date | string;
 }
 
-const getScheduledPostJobId = (postId: string) => `publish-post-${postId}`;
+const getScheduledPostJobId = (postId: string, runAtMs: number) =>
+  `publish-post-${postId}-${runAtMs}`;
 
 const removeSchedulePublishJob = async (postId: string): Promise<void> => {
   if (!postQueue) {
     return;
   }
-  const jobId = getScheduledPostJobId(postId);
-  const existingJob = await postQueue.getJob(jobId);
-  if (existingJob) {
-    await existingJob.remove();
+  const jobs = await postQueue.getJobs([
+    "delayed",
+    "waiting",
+    "paused",
+    "prioritized",
+  ]);
+
+  for (const job of jobs) {
+    if (job?.name === "publish-post" && job?.data?.postId === postId) {
+      await job.remove();
+    }
   }
 };
 
@@ -81,7 +89,7 @@ const addSchedulePublishJob = async ({
     throw new Error("Invalid runAt date");
   }
   await removeSchedulePublishJob(postId);
-  const jobId = getScheduledPostJobId(postId);
+  const jobId = getScheduledPostJobId(postId, timestamp);
   const delay = Math.max(0, timestamp - Date.now());
   await postQueue.add(
     "publish-post",

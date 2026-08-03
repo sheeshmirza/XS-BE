@@ -89,6 +89,20 @@ class SocialService {
     };
   }
 
+  private shouldRefreshTokenExpiry(expiry: any) {
+    if (!expiry) {
+      return false;
+    }
+
+    const expiryDate = new Date(expiry);
+    if (Number.isNaN(expiryDate.getTime())) {
+      return false;
+    }
+
+    const refreshWindowMs = 10 * 60 * 1000;
+    return expiryDate.getTime() <= Date.now() + refreshWindowMs;
+  }
+
   private async upsertLinkedInManagedPages({
     userId,
     platform,
@@ -333,6 +347,21 @@ class SocialService {
     }
     const profile: any = await adapter.fetchUserProfile(accessToken);
 
+    let resolvedAccessToken = accessToken;
+    let resolvedRefreshToken = refreshToken;
+    if (platform === platforms.INSTAGRAM) {
+      try {
+        const refreshed = await adapter.refreshToken(accessToken);
+        if (refreshed?.access_token) {
+          resolvedAccessToken = refreshed.access_token;
+          resolvedRefreshToken =
+            refreshed.refresh_token || refreshToken || resolvedAccessToken;
+        }
+      } catch (_error) {
+        // Keep the original token if Meta rejects the refresh attempt.
+      }
+    }
+
     const profilePlatformUserId = String(profile.platformUserId || "").trim();
     if (!profilePlatformUserId) {
       throw new ApiError(
@@ -348,8 +377,8 @@ class SocialService {
         platform,
         profilePlatformUserId,
         profile,
-        accessToken,
-        refreshToken,
+        accessToken: resolvedAccessToken,
+        refreshToken: resolvedRefreshToken,
         accessTokenExpiry,
         scopes,
       });
@@ -357,7 +386,7 @@ class SocialService {
       let linkedPageCount = 0;
       if (typeof (adapter as any)?.fetchManagedPages === "function") {
         const managedPages = await (adapter as any).fetchManagedPages(
-          accessToken,
+          resolvedAccessToken,
           profile,
         );
 
@@ -366,8 +395,8 @@ class SocialService {
           platform,
           managedPages,
           parentPlatformUserId: profilePlatformUserId,
-          accessToken,
-          refreshToken,
+          accessToken: resolvedAccessToken,
+          refreshToken: resolvedRefreshToken,
           accessTokenExpiry,
           scopes,
         });
@@ -422,13 +451,19 @@ class SocialService {
       throw new ApiError(httpStatus.NOT_FOUND, "Social account not found");
     }
     const adapter = this.resolveOAuthAdapter(social.platform);
-    if (!social.platformRefreshToken) {
+    const refreshCredential =
+      social.platformRefreshToken ||
+      (social.platform === platforms.INSTAGRAM
+        ? social.platformAccessToken
+        : "");
+
+    if (!refreshCredential) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
         "No refresh token available for this social account",
       );
     }
-    const refreshed = await adapter.refreshToken(social.platformRefreshToken);
+    const refreshed = await adapter.refreshToken(refreshCredential);
     if (!refreshed || !refreshed.access_token) {
       await this.socialHandleRepo.updateByIdAndUserId(social._id, userId, {
         isConnected: false,
@@ -448,12 +483,47 @@ class SocialService {
     return this.socialHandleRepo.updateByIdAndUserId(social._id, userId, {
       platformAccessToken: refreshed.access_token,
       platformRefreshToken:
-        refreshed.refresh_token || social.platformRefreshToken,
+        refreshed.refresh_token ||
+        (social.platform === platforms.INSTAGRAM
+          ? refreshed.access_token
+          : social.platformRefreshToken),
       platformAccessTokenExpiry: refreshed.expires_in
         ? new Date(Date.now() + Number(refreshed.expires_in) * 1000)
         : social.platformAccessTokenExpiry,
       isConnected: true,
     });
+  }
+
+  async refreshPlatformTokenIfNeeded(userId, social: any) {
+    if (!social?._id) {
+      return social;
+    }
+
+    if (social.platform === platforms.INSTAGRAM) {
+      if (!this.shouldRefreshTokenExpiry(social.platformAccessTokenExpiry)) {
+        return social;
+      }
+
+      try {
+        return await this.refreshPlatformToken(userId, String(social._id));
+      } catch (_error) {
+        return social;
+      }
+    }
+
+    const expiry = social.platformAccessTokenExpiry
+      ? new Date(social.platformAccessTokenExpiry)
+      : null;
+
+    if (!expiry || Number.isNaN(expiry.getTime()) || expiry.getTime() > Date.now()) {
+      return social;
+    }
+
+    try {
+      return await this.refreshPlatformToken(userId, String(social._id));
+    } catch (_error) {
+      return social;
+    }
   }
   listHandlesForPlatforms(userId, platformList) {
     return this.socialHandleRepo.findByUserPlatforms(userId, platformList);

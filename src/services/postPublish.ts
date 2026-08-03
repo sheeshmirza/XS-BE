@@ -33,6 +33,8 @@ const postPublishService = new PostPublishService({
     socialHandleRepository.findByUserAndIds(userId, accountIds),
   getHandlesByPlatforms: (userId, platformList) =>
     socialService.listHandlesForPlatforms(userId, platformList),
+  ensureFreshHandle: (userId, handle) =>
+    socialService.refreshPlatformTokenIfNeeded(userId, handle),
   getPlatformService: (platform) => platformPublishServiceFactory.getService(platform),
 });
 

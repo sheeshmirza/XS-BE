@@ -12,6 +12,26 @@ import {
 import aiService from "./aiService";
 import postPublishService from "./postPublish";
 class PostService {
+  private validateInstagramContentRequirements(
+    platformList: any[] = [],
+    mediaList: any[] = [],
+  ) {
+    const normalizedPlatforms = Array.isArray(platformList)
+      ? platformList.map((platform) => String(platform || "").trim().toLowerCase())
+      : [];
+    const includesInstagram = normalizedPlatforms.includes("instagram");
+    const hasMedia = Array.isArray(mediaList)
+      ? mediaList.some((item) => String(item?.url || "").trim())
+      : false;
+
+    if (includesInstagram && !hasMedia) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Instagram publishing requires at least one media item",
+      );
+    }
+  }
+
   private normalizeGenerationType(value: any) {
     const normalized = String(value || "")
       .trim()
@@ -301,6 +321,11 @@ class PostService {
       );
     }
 
+    this.validateInstagramContentRequirements(
+      resolvedPayload.selectedPlatforms,
+      resolvedPayload.media,
+    );
+
     return postRepository.create({
       userId,
       title: resolvedPayload.title,
@@ -342,6 +367,24 @@ class PostService {
     return post;
   }
   async updatePost(userId, postId, payload) {
+    if (
+      Object.prototype.hasOwnProperty.call(payload || {}, "selectedPlatforms") ||
+      Object.prototype.hasOwnProperty.call(payload || {}, "media")
+    ) {
+      const existingPost = await this.getPost(userId, postId);
+      const nextPlatforms = Object.prototype.hasOwnProperty.call(
+        payload || {},
+        "selectedPlatforms",
+      )
+        ? payload.selectedPlatforms
+        : existingPost.selectedPlatforms;
+      const nextMedia = Object.prototype.hasOwnProperty.call(payload || {}, "media")
+        ? payload.media
+        : existingPost.media;
+
+      this.validateInstagramContentRequirements(nextPlatforms, nextMedia);
+    }
+
     const updated = await postRepository.updateByIdAndUserId(
       postId,
       userId,
@@ -374,6 +417,8 @@ class PostService {
       platformList.length > 0 ? platformList : post.selectedPlatforms;
     const selectedAccountIds =
       accountIdList.length > 0 ? accountIdList : post.selectedAccountIds || [];
+
+    this.validateInstagramContentRequirements(selectedPlatforms, post.media);
 
     const responseItems = await postPublishService.publishToPlatforms({
       userId,
@@ -451,6 +496,7 @@ class PostService {
   }
   async schedulePost(userId, postId, scheduleInput: any) {
     const post = await this.getPost(userId, postId);
+    this.validateInstagramContentRequirements(post.selectedPlatforms, post.media);
     const resolvedScheduledTime = this.resolveScheduledDateTime(scheduleInput);
 
     if (resolvedScheduledTime.getTime() <= Date.now()) {
@@ -510,6 +556,42 @@ class PostService {
       title: "Scheduled post published",
       message: "A scheduled post was published automatically",
       metadata: { postId: post._id },
+    });
+  }
+  async requeueRecurringScheduledPostsOnStartup() {
+    const posts = await postRepository.listRecurringScheduledPosts();
+    if (!posts.length) {
+      return;
+    }
+
+    let restoredCount = 0;
+    for (const post of posts) {
+      const scheduledTime = post?.scheduledTime
+        ? new Date(post.scheduledTime)
+        : null;
+      if (!scheduledTime || Number.isNaN(scheduledTime.getTime())) {
+        continue;
+      }
+
+      try {
+        await addSchedulePublishJob({
+          postId: post._id.toString(),
+          runAt: scheduledTime,
+        });
+        restoredCount += 1;
+      } catch (error: any) {
+        console.error({
+          message: "Failed to restore recurring scheduled post job",
+          postId: post?._id?.toString?.() || "",
+          error: error?.message || String(error),
+        });
+      }
+    }
+
+    console.log({
+      message: "Recurring scheduled post jobs restored",
+      restoredCount,
+      totalCandidates: posts.length,
     });
   }
   countPosts(userId) {
